@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UZAIRUE</title>
+<!-- STYLES: all colours, layout and card looks live in style.css. -->
+<link rel="stylesheet" href="style.css">
+<!-- THEME: applies the saved light/dark choice before the page paints, so it does not flash. -->
+<script src="theme.js"></script>
+</head>
+<body>
+<!-- TOP BAR: logo, navigation buttons (filled in by app.js) and the light/dark toggle. -->
+<header><span class="logo" onclick="go('home')">UZAIRUE</span><nav id="nav"></nav><button id="theme" onclick="toggleTheme()" aria-label="Switch light or dark mode"></button></header>
+<!-- PAGE AREA: app.js draws the current page here. -->
+<main id="app"></main>
+<!-- SCRIPTS (order matters): config, firebase, core, auth, public, member, admin, app. Each file explains itself at the top. -->
+<script defer src="config.js"></script>
+<script type="module" src="firebase.js"></script>
+<script defer src="core.js"></script>
+<script defer src="auth.js"></script>
+<script defer src="public.js"></script>
+<script defer src="member.js"></script>
+<script defer src="admin.js"></script>
+<script defer src="app.js"></script>
+</body>
+</html>
