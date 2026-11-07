@@ -37,3 +37,4 @@ canvas{max-width:100%;height:auto;border-radius:14px;box-shadow:0 0 22px var(--g
 
 #theme{padding:8px 11px;font-size:16px;line-height:1}
 button:disabled{opacity:.6;cursor:wait}
+.card+.grid,.card+.card{margin-top:14px}
