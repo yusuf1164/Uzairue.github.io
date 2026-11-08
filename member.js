@@ -8,7 +8,7 @@
 function profile(){
   const m=S.card||S.me;if(!m)return '<div class="card">Your profile is not available. If you were registered by an admin without an email, ask the admin to view it for you.</div>';
   const t=titleOf(m);
-  return '<div class="card" style="display:flex;gap:14px;align-items:center">'+av(m)+'<div><h3>'+esc(m.name)+'</h3>'+(t?'<span class="tag a">'+esc(t)+'</span> ':'')+'<div class="big">'+esc(m.id)+'</div><div class="mute">'+esc(m.village)+' · Address '+esc(m.address||'-')+'</div><div class="mute">'+esc(m.phone||'')+' '+esc(m.email||'')+'</div></div></div><h2>Digital ID card</h2><canvas id="cv"></canvas><div class="row"><button class="p" onclick="dl()">Download ID</button></div>'+(S.card?'':'<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">')}
+  return '<div class="card" style="display:flex;gap:14px;align-items:center">'+av(m)+'<div><h3>'+esc(m.name)+'</h3>'+(t?'<span class="tag a">'+esc(t)+'</span> ':'')+'<div class="big">'+esc(m.id)+'</div><div class="mute">'+esc(m.village)+' · Address '+esc(m.house||'-')+'</div><div class="mute">'+esc(m.phone||'')+' '+esc(m.email||'')+'</div></div></div><h2>Digital ID card</h2><canvas id="cv"></canvas><div class="row"><button class="p" onclick="dl()">Download ID</button></div>'+(S.card?'':'<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">')}
 // ------------------------------------------------------------
 // SECTION: ID card drawing
 // What it does: Paints the ID card on a canvas: name, ID, village, address, phone, title,
@@ -22,7 +22,7 @@ function drawCard(m,id){
   x.textAlign='left';x.fillStyle='#00e5ff';x.font='bold 26px sans-serif';x.fillText('UZAIRUE MEMBER',30,56);
   x.fillStyle='#fff';x.font='bold 34px sans-serif';x.fillText(m.name||'',210,160);
   x.font='bold 26px monospace';x.fillStyle='#7df9ff';x.fillText(m.id||'',210,205);
-  x.font='20px sans-serif';x.fillStyle='#cfe';x.fillText('Village: '+(m.village||''),210,245);x.fillText('Address: '+(m.address||'-'),210,275);x.fillText('Phone: '+(m.phone||'-'),210,305);
+  x.font='20px sans-serif';x.fillStyle='#cfe';x.fillText('Village: '+(m.village||''),210,245);x.fillText('Address: '+(m.house||'-'),210,275);x.fillText('Phone: '+(m.phone||'-'),210,305);
   if(t){x.fillStyle='#ffd166';x.fillText(t,210,335)}
   x.fillStyle=m.status==='revoked'?'#ff6b6b':'#4cffa6';x.font='bold 20px sans-serif';x.fillText(m.status==='revoked'?'REVOKED':'ACTIVE',210,372);
   x.fillStyle='#16284a';x.fillRect(30,110,150,150);
