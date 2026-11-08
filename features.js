@@ -236,7 +236,7 @@
   // ------------------------------------------------------------
   // SECTION: ID card (replaces drawCard)
   // What it does: paints the new card: dark green curved left panel with
-  // the member's name, title, ID, village, house, phone and status; lime
+  // the member's name, title, ID, village, address, phone and status; lime
   // green right panel with the logo, "UZAIRUE COMMUNITY CARD", the member
   // photo and a QR code that holds the member ID. The logo is also the
   // faint background. No icons.
@@ -266,7 +266,7 @@
     x.fillStyle = PALE; x.font = 'bold 24px sans-serif'; x.fillText(String((titleOf(m) || 'MEMBER')).toUpperCase(), 40, 215);
     x.fillStyle = '#145a22'; x.fillRect(40, 238, 500, 3);
     // details (no icons)
-    const rows = [['MEMBER ID', m.id || ''], ['VILLAGE', m.village || ''], ['HOUSE', m.house || '-'], ['PHONE', m.phone || '-'], ['STATUS', m.status === 'revoked' ? 'REVOKED' : 'ACTIVE']];
+    const rows = [['MEMBER ID', m.id || ''], ['VILLAGE', m.village || ''], ['ADDRESS', m.address || '-'], ['PHONE', m.phone || '-'], ['STATUS', m.status === 'revoked' ? 'REVOKED' : 'ACTIVE']];
     rows.forEach(function (r, i) { const y = 300 + i * 60; x.fillStyle = LIME; x.font = 'bold 20px sans-serif'; x.fillText(r[0], 40, y); x.fillStyle = (r[0] === 'STATUS' && r[1] === 'REVOKED') ? '#ff6b6b' : '#ffffff'; x.font = '30px sans-serif'; x.fillText(String(r[1]), 215, y); });
     // photo
     x.save(); x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.closePath(); x.clip();
