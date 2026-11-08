@@ -1,77 +1,148 @@
 /* UZAIRUE styles. Every block below has a label saying what it styles. */
+
 /* LIGHT COLOURS: the default palette. These variables are used by every rule below. */
-:root{--bg:#f3f6fb;--card:#ffffff;--ink:#0f1b2d;--mute:#5a6b82;--acc:#0a7ea4;--acc2:#6d4bd6;--line:rgba(10,126,164,.30);--bad:#c0392b;--hdr:rgba(255,255,255,.92);--btn:#eef3f9;--field:#f7f9fc;--soft:#e3eaf4;--glow:rgba(10,126,164,.10);--glow2:rgba(10,126,164,.28);--accink:#ffffff;--bgglow:#dbe9fb;--hero1:rgba(10,126,164,.10);--hero2:rgba(109,75,214,.12);color-scheme:light}
+:root{
+  --bg:#f3f6fb;   --card:#ffffff;   --ink:#0f1b2d;   --mute:#5a6b82;   --acc:#0a7ea4;
+  --acc2:#6d4bd6; --line:rgba(10,126,164,.30); --bad:#c0392b; --hdr:rgba(255,255,255,.92);
+  --btn:#eef3f9;  --field:#f7f9fc;  --soft:#e3eaf4;  --glow:rgba(10,126,164,.10);
+  --glow2:rgba(10,126,164,.28); --accink:#ffffff; --bgglow:#dbe9fb;
+  --hero1:rgba(10,126,164,.10); --hero2:rgba(109,75,214,.12);
+  color-scheme:light;
+}
+
 /* DARK COLOURS: applied automatically when the phone is in dark mode. */
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#060a13;--card:#0d1424;--ink:#eef6ff;--mute:#8fa3bd;--acc:#00e5ff;--acc2:#8b5cf6;--line:rgba(0,229,255,.28);--bad:#ff6b6b;--hdr:rgba(6,10,19,.92);--btn:#101a30;--field:#080e1c;--soft:#16284a;--glow:rgba(0,229,255,.1);--glow2:rgba(0,229,255,.4);--accink:#02141a;--bgglow:#1a1140;--hero1:rgba(0,229,255,.12);--hero2:rgba(139,92,246,.16);color-scheme:dark}}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#060a13;   --card:#0d1424;   --ink:#eef6ff;   --mute:#8fa3bd;   --acc:#00e5ff;
+    --acc2:#8b5cf6; --line:rgba(0,229,255,.28); --bad:#ff6b6b; --hdr:rgba(6,10,19,.92);
+    --btn:#101a30;  --field:#080e1c;  --soft:#16284a;  --glow:rgba(0,229,255,.1);
+    --glow2:rgba(0,229,255,.4); --accink:#02141a; --bgglow:#1a1140;
+    --hero1:rgba(0,229,255,.12); --hero2:rgba(139,92,246,.16);
+    color-scheme:dark;
+  }
+}
+
 /* DARK COLOURS (manual): applied when the person taps the toggle to choose dark. */
-:root[data-theme="dark"]{--bg:#060a13;--card:#0d1424;--ink:#eef6ff;--mute:#8fa3bd;--acc:#00e5ff;--acc2:#8b5cf6;--line:rgba(0,229,255,.28);--bad:#ff6b6b;--hdr:rgba(6,10,19,.92);--btn:#101a30;--field:#080e1c;--soft:#16284a;--glow:rgba(0,229,255,.1);--glow2:rgba(0,229,255,.4);--accink:#02141a;--bgglow:#1a1140;--hero1:rgba(0,229,255,.12);--hero2:rgba(139,92,246,.16);color-scheme:dark}
+:root[data-theme="dark"]{
+  --bg:#060a13;   --card:#0d1424;   --ink:#eef6ff;   --mute:#8fa3bd;   --acc:#00e5ff;
+  --acc2:#8b5cf6; --line:rgba(0,229,255,.28); --bad:#ff6b6b; --hdr:rgba(6,10,19,.92);
+  --btn:#101a30;  --field:#080e1c;  --soft:#16284a;  --glow:rgba(0,229,255,.1);
+  --glow2:rgba(0,229,255,.4); --accink:#02141a; --bgglow:#1a1140;
+  --hero1:rgba(0,229,255,.12); --hero2:rgba(139,92,246,.16);
+  color-scheme:dark;
+}
+
 /* BASE: width includes padding so boxes size predictably. */
 *{box-sizing:border-box}
+
 /* PAGE: background, text colour and font; keeps content clear of phone notches. */
-body{margin:0;background:radial-gradient(900px 400px at 80% -10%,var(--bgglow) 0,transparent 60%),var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:radial-gradient(900px 400px at 80% -10%,var(--bgglow) 0,
+     transparent 60%),var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",
+     sans-serif;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
 /* TOP BAR: sticky bar holding the logo, nav buttons and theme button. */
-header{position:sticky;top:0;z-index:5;background:var(--hdr);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header{position:sticky;top:0;z-index:5;background:var(--hdr);backdrop-filter:blur(8px);
+       border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
 /* LOGO: the UZAIRUE text in the top bar. */
-.logo{font-weight:800;letter-spacing:.16em;color:var(--acc);font-size:20px;cursor:pointer;text-shadow:0 0 12px var(--glow2)}
+.logo{font-weight:800;letter-spacing:.16em;color:var(--acc);
+      font-size:20px;cursor:pointer;text-shadow:0 0 12px var(--glow2)}
+
 /* NAV: the row of top buttons. */
 nav{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+
 /* MAIN: the centred content column. */
 main{max-width:920px;margin:0 auto;padding:16px 14px 70px}
+
 /* HEADINGS: spacing and size of section titles. */
 h2{margin:26px 0 10px;font-size:20px}
+
 /* HERO: the big banner at the top of the home page. */
-.hero{border:1px solid var(--line);border-radius:18px;padding:26px 18px;background:linear-gradient(135deg,var(--hero1),var(--hero2));box-shadow:0 0 28px var(--glow)}
+.hero{border:1px solid var(--line);border-radius:18px;padding:26px 18px;
+      background:linear-gradient(135deg,var(--hero1),var(--hero2));box-shadow:0 0 28px var(--glow)}
 .hero h1{margin:0 0 6px;font-size:30px;letter-spacing:.12em}
+
 /* GRID: responsive card layout that wraps on small screens. */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+
 /* CARD: the glowing boxed container used everywhere. */
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 0 14px var(--glow)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+      padding:14px;box-shadow:0 0 14px var(--glow)}
 .card h3{margin:0 0 4px;font-size:17px}
+
 /* MUTED TEXT: smaller grey text. */
 .mute{color:var(--mute);font-size:14px}
+
 /* BUTTONS: default look of buttons and link-buttons. */
-button,.btn{font:inherit;border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--btn);color:var(--ink);
+            border-radius:10px;padding:8px 12px;cursor:pointer;text-decoration:none;display:inline-block}
+
 /* PRIMARY BUTTON: highlighted main action (.p). */
-button.p,.btn.p{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:700;box-shadow:0 0 14px var(--glow2)}
+button.p,.btn.p{background:var(--acc);color:var(--accink);border-color:var(--acc);
+                font-weight:700;box-shadow:0 0 14px var(--glow2)}
+
 /* DANGER AND ACTIVE BUTTONS: red delete text (.d) and the highlighted current tab (.on). */
-button.d{color:var(--bad)}button.on{border-color:var(--acc);color:var(--acc);background:var(--glow);box-shadow:0 0 10px var(--glow2)}
+button.d{color:var(--bad)}
+button.on{border-color:var(--acc);color:var(--acc);
+          background:var(--glow);box-shadow:0 0 10px var(--glow2)}
+
 /* FORM FIELDS: text boxes and dropdowns. */
-input,textarea,select{font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);margin:4px 0 10px}
+input,textarea,select{font:inherit;width:100%;padding:10px;border:1px solid var(--line);
+          border-radius:10px;background:var(--field);color:var(--ink);margin:4px 0 10px}
+
 /* FIELD LABELS. */
 label{font-size:14px;color:var(--mute)}
+
 /* ROW: buttons placed side by side with gaps. */
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+
 /* AVATAR: round member photo or first-letter circle. */
-.av{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--soft);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;color:var(--acc);overflow:hidden;flex:none;border:1px solid var(--line)}
+.av{width:72px;height:72px;border-radius:50%;object-fit:cover;background:var(--soft);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:26px;
+    color:var(--acc);overflow:hidden;flex:none;border:1px solid var(--line)}
+
 /* MEMBER CARD: centred layout for member and council cards. */
-.mem{text-align:center}.mem .av{margin:0 auto 8px;width:84px;height:84px}
+.mem{text-align:center}
+.mem .av{margin:0 auto 8px;width:84px;height:84px}
+
 /* TAGS: small pills such as admin, active and King. */
-.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--mute)}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;
+     background:var(--soft);color:var(--mute)}
 .tag.a{background:var(--acc);color:var(--accink)}
+
 /* PROGRESS BAR: project funding bar and its fill. */
 .bar{height:10px;border-radius:99px;background:var(--soft);overflow:hidden;margin:8px 0 4px}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));box-shadow:0 0 10px var(--acc)}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));
+       box-shadow:0 0 10px var(--acc)}
+
 /* MESSAGE BOX: notices at the top of a page. */
 .msg{padding:10px;border-radius:10px;border:1px solid var(--line);margin-bottom:10px}
+
 /* NARROW CARD: centred login, sign-up and verify card. */
 .narrow{max-width:430px;margin:0 auto}
+
 /* NEWS THUMBNAIL: image on a news card. */
 .thumb{width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:8px}
+
 /* KING CARD: the featured council card. */
 .king{display:flex;gap:14px;align-items:center;border-color:var(--acc);box-shadow:0 0 22px var(--glow2)}
 .king .av{width:96px;height:96px}
+
 /* ID CARD CANVAS: sizing and glow of the downloadable card. */
 canvas{max-width:100%;height:auto;border-radius:14px;box-shadow:0 0 22px var(--glow2)}
+
 /* BIG NUMBER: large accent text for IDs and totals. */
 .big{font-size:26px;font-weight:800;color:var(--acc)}
 
 /* THEME BUTTON: the sun/moon toggle in the top bar. */
 #theme{padding:8px 11px;font-size:16px;line-height:1}
+
 /* BUSY BUTTON: dimmed while an action is running. */
 button:disabled{opacity:.6;cursor:wait}
 
 /* SPACING: gap between a card and the list of cards under it. */
 .card+.grid,.card+.card{margin-top:14px}
+
 /* ADMIN TILES: the clickable section cards on the Admin page. */
 .tile{cursor:pointer;transition:transform .15s,box-shadow .15s}
 .tile:hover{transform:translateY(-2px);box-shadow:0 0 22px var(--glow2)}
