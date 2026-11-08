@@ -22,7 +22,7 @@ function drawCard(m,id){
   x.textAlign='left';x.fillStyle='#00e5ff';x.font='bold 26px sans-serif';x.fillText('UZAIRUE MEMBER',30,56);
   x.fillStyle='#fff';x.font='bold 34px sans-serif';x.fillText(m.name||'',210,160);
   x.font='bold 26px monospace';x.fillStyle='#7df9ff';x.fillText(m.id||'',210,205);
-  x.font='20px sans-serif';x.fillStyle='#cfe';x.fillText('Village: '+(m.village||''),210,245);x.fillText('Address: '+(m.house||'-'),210,275);x.fillText('Phone: '+(m.phone||'-'),210,305);
+  x.font='20px sans-serif';x.fillStyle='#cfe';x.fillText('Village/Town: '+(m.village||''),210,245);x.fillText('Address: '+(m.house||'-'),210,275);x.fillText('Phone: '+(m.phone||'-'),210,305);
   if(t){x.fillStyle='#ffd166';x.fillText(t,210,335)}
   x.fillStyle=m.status==='revoked'?'#ff6b6b':'#4cffa6';x.font='bold 20px sans-serif';x.fillText(m.status==='revoked'?'REVOKED':'ACTIVE',210,372);
   x.fillStyle='#16284a';x.fillRect(30,110,150,150);
