@@ -270,7 +270,7 @@
     // details (no icons): smaller values so everything fits
     const addr = m.address || m.house || '-', age = ageOf(m.dob);
     const stat = (age !== '' ? age + ' yrs \u00b7 ' : '') + (m.status === 'revoked' ? 'REVOKED' : 'ACTIVE');
-    const rows = [['MEMBER ID', m.id || ''], ['VILLAGE/TOWN', m.village || ''], ['ADDRESS', addr], ['PHONE', m.phone || '-'], ['OCCUPATION', m.occupation || '-'], ['AGE / STATUS', stat]];
+    const rows = [['MEMBER ID', m.id || ''], ['VILLAGE/TOWN', m.village || ''], ['ADDRESS', addr], ['PHONE', m.phone || '-'], ['OCCUPATION', m.occupation || '-'], ['STATUS', stat]];
     let ry = 292;
     rows.forEach(function (r) {
       x.fillStyle = LIME; x.font = 'bold 16px sans-serif'; x.fillText(r[0], 40, ry);
