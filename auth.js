@@ -7,9 +7,9 @@ const login=()=>'<div class="card narrow"><h3>Log in</h3><label>Email</label><in
 // ------------------------------------------------------------
 // SECTION: Sign-up page
 // What it does: Draws the registration form: name, email (required), password, mobile,
-//    house number, village and photo.
+//    Address, village and photo.
 // ------------------------------------------------------------
-const signup=()=>'<div class="card narrow"><h3>Join UZAIRUE</h3><label>Full name</label><input id="sn"><label>Email (required)</label><input id="se" type="email"><label>Password (6+ characters)</label><input id="sp" type="password"><label>Mobile number</label><input id="sm" type="tel"><label>House number</label><input id="sh"><label>Village</label><select id="sv">'+vopts()+'</select><label>Profile photo</label><input type="file" accept="image/*" onchange="pick(this)"><button class="p" onclick="doSignup()">Create account</button></div>';
+const signup=()=>'<div class="card narrow"><h3>Join UZAIRUE</h3><label>Full name</label><input id="sn"><label>Email (required)</label><input id="se" type="email"><label>Password (6+ characters)</label><input id="sp" type="password"><label>Mobile number</label><input id="sm" type="tel"><label>address</label><input id="sh"><label>Village</label><select id="sv">'+vopts()+'</select><label>Profile photo</label><input type="file" accept="image/*" onchange="pick(this)"><button class="p" onclick="doSignup()">Create account</button></div>';
 // ------------------------------------------------------------
 // SECTION: Action: log in
 // What it does: Signs in with the typed email and password through Firebase. Shows an error
@@ -25,8 +25,8 @@ async function doSignup(){
   const n=v('sn'),e=v('se'),p=$('sp').value;
   if(!n||!e||p.length<6)return say('Name, email and a 6+ character password are required.');
   try{const c=await createUserWithEmailAndPassword(auth,e,p),id=await nextId();
-    await setDoc(doc(db,'members',c.user.uid),{id,name:n,email:e,phone:v('sm'),house:v('sh'),village:v('sv'),role:'member',status:'active',img:S.img,createdAt:serverTimestamp()});
-    S.me={_id:c.user.uid,id,name:n,email:e,phone:v('sm'),house:v('sh'),village:v('sv'),role:'member',status:'active',img:S.img};try{await sendEmailVerification(c.user)}catch(e){}S.img='';S.view='verify';S.msg='Account created. We sent a verification link to your email.';await loadPub();render()}catch(x){say(x.message)}}
+    await setDoc(doc(db,'members',c.user.uid),{id,name:n,email:e,phone:v('sm'),address:v('sh'),village:v('sv'),role:'member',status:'active',img:S.img,createdAt:serverTimestamp()});
+    S.me={_id:c.user.uid,id,name:n,email:e,phone:v('sm'),address:v('sh'),village:v('sv'),role:'member',status:'active',img:S.img};try{await sendEmailVerification(c.user)}catch(e){}S.img='';S.view='verify';S.msg='Account created. We sent a verification link to your email.';await loadPub();render()}catch(x){say(x.message)}}
 // ------------------------------------------------------------
 // SECTION: Action: log out
 // What it does: Signs the member out and returns to Home.
