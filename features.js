@@ -573,6 +573,778 @@
   fxMenuSync();
 
 
+
+  // ------------------------------------------------------------
+  // DUES (paste above the "SECTION: Hook-up and start" part)
+  // What it does: adds community dues, paid monthly or yearly.
+  //
+  // Members get a "Dues" page (new item in the menu) that shows:
+  //   - their plan (monthly or yearly) and the amount
+  //   - their status: "Paid up to Mar 2027" or "Owing 3 months"
+  //   - the community bank account with a Copy button
+  //   - an "I've paid" form (months or years, amount, reference,
+  //     optional receipt photo). The payment waits as "Pending"
+  //     until an admin confirms it.
+  //   - their payment history
+  //
+  // Admins get a "Dues" card on the Admin page with:
+  //   - the monthly amount, yearly amount and the month dues start
+  //   - totals (paid up, owing, pending, money confirmed)
+  //   - pending payments to confirm or reject
+  //   - a form to record a payment for any member by ID
+  //   - the list of members with their status, a filter, a plan
+  //     switch and a "Remind on WhatsApp" button for those who owe
+  //
+  // Uses: the Firebase "dues" collection (payments) and the
+  // settings/dues document (amounts). Needs the new Firebase rules.
+  // ------------------------------------------------------------
+
+  // --- Shared state for dues
+  S.duesCfg = S.duesCfg || {};
+  S.fxMine = S.fxMine || [];
+  S.fxAll = S.fxAll || [];
+  S.fxF = S.fxF || { q: '', v: '', s: '' };
+
+  // --- Small helpers: money, months, plan and WhatsApp link
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function naira(n) {
+    return '\u20a6' + Number(n || 0).toLocaleString();
+  }
+
+  // "2026-11" becomes a month number so months can be counted
+  function fxMonthIndex(ym) {
+    const p = String(ym || '').split('-').map(Number);
+
+    if (p.length < 2 || !p[0] || !p[1]) {
+      return null;
+    }
+
+    return p[0] * 12 + (p[1] - 1);
+  }
+
+  function fxNowIndex() {
+    const d = new Date();
+
+    return d.getFullYear() * 12 + d.getMonth();
+  }
+
+  function fxMonthLabel(i) {
+    return MONTH_NAMES[i % 12] + ' ' + Math.floor(i / 12);
+  }
+
+  function fxToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function fxPlanOf(m) {
+    return m && m.duesPlan === 'yearly' ? 'yearly' : 'monthly';
+  }
+
+  function fxUnitRate(plan) {
+    const cfg = S.duesCfg || {};
+
+    return Number(plan === 'yearly' ? cfg.yearly : cfg.monthly) || 0;
+  }
+
+  // Phone number to a WhatsApp link (Nigerian 0803... becomes 234803...)
+  function fxWaLink(m, st) {
+    let digits = String(m.phone || '').replace(/\D/g, '');
+
+    if (digits.length === 11 && digits.charAt(0) === '0') {
+      digits = '234' + digits.slice(1);
+    }
+
+    if (!digits) {
+      return '';
+    }
+
+    const text =
+      'Hello ' + m.name + ', this is a reminder from UZAIRUE. ' +
+      'Your dues are owing: ' + st.owing + ' month(s), ' + naira(st.owed) + '. Thank you.';
+
+    return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
+  }
+
+  // --- Works out where a member stands, from their confirmed payments
+  function fxDuesStatus(m, payments) {
+    const cfg = S.duesCfg || {};
+    const start = fxMonthIndex(cfg.startMonth);
+    const plan = fxPlanOf(m);
+    const hasRates = Number(cfg.monthly) > 0 || Number(cfg.yearly) > 0;
+
+    if (start === null || !hasRates) {
+      return { active: false, plan: plan };
+    }
+
+    // Dues count from the start month, or the month the member joined if later
+    let from = start;
+
+    if (m.createdAt && typeof m.createdAt.toDate === 'function') {
+      const joined = m.createdAt.toDate();
+      const joinIndex = joined.getFullYear() * 12 + joined.getMonth();
+
+      from = Math.max(start, joinIndex);
+    }
+
+    const perMonth = plan === 'yearly' ? fxUnitRate('yearly') / 12 : fxUnitRate('monthly');
+    const due = Math.max(0, fxNowIndex() - from + 1);
+    let paid = 0;
+    let pending = 0;
+
+    payments.forEach(function (p) {
+      if (p.status === 'confirmed') {
+        paid += Number(p.months) || 0;
+      } else if (p.status === 'pending') {
+        pending += 1;
+      }
+    });
+
+    const owing = Math.max(0, due - paid);
+
+    return {
+      active: true,
+      plan: plan,
+      perMonth: perMonth,
+      owing: owing,
+      owed: Math.round(owing * perMonth),
+      paidUpTo: from + paid - 1,
+      paid: paid,
+      pending: pending
+    };
+  }
+
+  function fxStatusText(st) {
+    if (!st.active) {
+      return 'Dues have not started yet';
+    }
+
+    if (st.owing > 0) {
+      return 'Owing ' + st.owing + ' month' + (st.owing === 1 ? '' : 's') + ' \u00b7 ' + naira(st.owed);
+    }
+
+    return 'Paid up to ' + fxMonthLabel(st.paidUpTo);
+  }
+
+  function fxStatusHtml(st) {
+    const owing = st.active && st.owing > 0;
+    const style = owing ? ' style="color:var(--bad)"' : '';
+
+    return '<div class="big"' + style + '>' + esc(fxStatusText(st)) + '</div>';
+  }
+
+  // --- Loading: amounts, my payments (members) and all payments (admins)
+  let fxFirestorePromise = null;
+
+  // Firebase's "where" is not shared by firebase.js, so load it here (same copy of Firebase)
+  function fxFirestore() {
+    if (!fxFirestorePromise) {
+      fxFirestorePromise = import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    }
+
+    return fxFirestorePromise;
+  }
+
+  async function fxLoadCfg() {
+    if (!cfgOk) {
+      return;
+    }
+
+    try {
+      const d = await getDoc(doc(db, 'settings', 'dues'));
+
+      S.duesCfg = d.exists() ? d.data() : {};
+    } catch (e) {
+      S.duesCfg = {};
+    }
+  }
+
+  async function fxLoadMine() {
+    S.fxMine = [];
+
+    if (!cfgOk || !auth || !auth.currentUser || !auth.currentUser.emailVerified) {
+      return;
+    }
+
+    try {
+      const fs = await fxFirestore();
+      const q = fs.query(
+        fs.collection(db, 'dues'),
+        fs.where('uid', '==', auth.currentUser.uid)
+      );
+      const snap = await fs.getDocs(q);
+
+      S.fxMine = snap.docs.map(function (d) {
+        return Object.assign({ _id: d.id }, d.data());
+      });
+    } catch (e) {
+      S.fxMine = [];
+    }
+  }
+
+  const _loadPubDues = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubDues();
+    await fxLoadCfg();
+    await fxLoadMine();
+  };
+
+  const _loadAdminDues = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminDues();
+    S.fxAll = (await list('dues', 'at')).reverse();
+  };
+
+  // --- Menu: add a "Dues" item for logged-in, verified members
+  const _navDues = window.nav;
+
+  window.nav = function () {
+    _navDues();
+    fxDuesNavItem();
+  };
+
+  function fxDuesNavItem() {
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+
+    btn.textContent = 'Dues';
+    btn.setAttribute('onclick', "go('dues')");
+
+    if (S.view === 'dues') {
+      btn.classList.add('on');
+    }
+
+    const logout = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (logout) {
+      nav.insertBefore(btn, logout);
+    } else {
+      nav.appendChild(btn);
+    }
+  }
+
+  // --- Page: after the normal redraw, draw the Dues page when it is selected
+  const _renderDues = window.render;
+
+  window.render = function () {
+    if (S.ready && S.view === 'dues') {
+      if (!S.user) {
+        S.view = 'home';
+      } else if (!S.user.emailVerified) {
+        S.view = 'verify';
+      }
+    }
+
+    _renderDues();
+
+    if (S.view === 'dues') {
+      fxDrawDues();
+    }
+  };
+
+  // --- Member page: status, plan, how to pay, "I've paid" form and history
+  function fxDrawDues() {
+    const app = $('app');
+    const m = S.me;
+
+    if (!app) {
+      return;
+    }
+
+    if (!m) {
+      app.innerHTML = '<div class="card">Your profile is not available yet.</div>';
+      return;
+    }
+
+    const cfg = S.duesCfg || {};
+    const st = fxDuesStatus(m, S.fxMine || []);
+    const plan = fxPlanOf(m);
+    const unit = plan === 'yearly' ? 'year' : 'month';
+    const rate = fxUnitRate(plan);
+    const parts = [];
+
+    if (S.msg) {
+      parts.push('<div class="msg">' + esc(S.msg) + '</div>');
+    }
+
+    parts.push('<h2>Dues</h2>');
+    parts.push('<div class="card">');
+    parts.push('<h3>Your dues</h3>');
+    parts.push(fxStatusHtml(st));
+
+    if (st.active && st.pending > 0) {
+      parts.push('<div class="mute">' + st.pending + ' payment(s) waiting for an admin to confirm</div>');
+    }
+
+    parts.push('<div class="mute" style="margin-top:8px">Plan: ' + (plan === 'yearly' ? 'Yearly' : 'Monthly') + ' \u00b7 ' + naira(rate) + ' per ' + unit + '</div>');
+    parts.push('<div class="row">');
+    parts.push('<button class="' + (plan === 'monthly' ? 'on' : '') + '" onclick="fxSetPlan(\'monthly\')">Monthly</button>');
+    parts.push('<button class="' + (plan === 'yearly' ? 'on' : '') + '" onclick="fxSetPlan(\'yearly\')">Yearly</button>');
+    parts.push('</div>');
+    parts.push('</div>');
+
+    if (st.active) {
+      parts.push('<h2>Pay your dues</h2>');
+      parts.push('<div class="card">');
+      parts.push('<p class="mute">Send the money to this account, then tell us below.</p>');
+      parts.push(acctHtml(acctOf(null)));
+      parts.push('</div>');
+      parts.push('<div class="card" style="margin-top:14px">');
+      parts.push('<h3>I\u2019ve paid</h3>');
+      parts.push('<label>How many ' + unit + 's are you paying for?</label>');
+      parts.push('<input id="fx_dn" type="number" min="1" value="1" oninput="fxDuesCalc()">');
+      parts.push('<label>Amount paid (\u20a6)</label>');
+      parts.push('<input id="fx_da" type="number" value="' + rate + '">');
+      parts.push('<label>Reference or narration</label>');
+      parts.push('<input id="fx_dr">');
+      parts.push('<label>Receipt photo (optional)</label>');
+      parts.push('<input type="file" accept="image/*" onchange="fxPick(this,\'receipt\',900)">');
+      parts.push('<img id="pv_receipt" class="pv" style="display:none">');
+      parts.push('<button class="p" onclick="fxPayDues()">I\u2019ve paid</button>');
+      parts.push('</div>');
+    } else {
+      parts.push('<div class="card mute" style="margin-top:14px">Dues have not been set up yet. Please check again soon.</div>');
+    }
+
+    parts.push('<h2>Payment history</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxHistoryHtml(S.fxMine || []));
+    parts.push('</div>');
+
+    app.innerHTML = parts.join('');
+  }
+
+  // Cards for a list of payments (used on the member page)
+  function fxHistoryHtml(payments) {
+    if (!payments.length) {
+      return '<div class="card mute">No payments yet.</div>';
+    }
+
+    return payments
+      .slice()
+      .sort(function (a, b) {
+        return String(b.date).localeCompare(String(a.date));
+      })
+      .map(function (p) {
+        const unit = p.plan === 'yearly' ? 'year' : 'month';
+        const label = p.status === 'confirmed' ? 'Confirmed' : (p.status === 'rejected' ? 'Rejected' : 'Pending');
+
+        return '<div class="card">' +
+          '<div class="big">' + naira(p.amount) + '</div>' +
+          '<div>' + esc(p.count) + ' ' + unit + (Number(p.count) === 1 ? '' : 's') + '</div>' +
+          '<div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div>' +
+          '<span class="tag ' + (p.status === 'confirmed' ? 'a' : '') + '">' + label + '</span>' +
+          '</div>';
+      })
+      .join('');
+  }
+
+  // --- Member actions: choose a plan, update the amount, report a payment
+  async function fxSetPlan(plan) {
+    if (!S.me) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', S.me._id), { duesPlan: plan });
+      S.me.duesPlan = plan;
+      render();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // Fills the amount box when the number of months or years changes
+  function fxDuesCalc() {
+    const n = parseInt(v('fx_dn'), 10) || 0;
+    const rate = fxUnitRate(fxPlanOf(S.me));
+    const amount = $('fx_da');
+
+    if (amount) {
+      amount.value = n > 0 ? n * rate : '';
+    }
+  }
+
+  async function fxPayDues() {
+    const m = S.me;
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_dn'), 10);
+    const amount = Number(v('fx_da'));
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter how many ' + (plan === 'yearly' ? 'years' : 'months') + ' and the amount you paid.');
+    }
+
+    try {
+      await addDoc(collection(db, 'dues'), {
+        uid: auth.currentUser.uid,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_dr'),
+        receipt: IMG.receipt || '',
+        status: 'pending',
+        by: 'member',
+        date: fxToday(),
+        at: serverTimestamp()
+      });
+
+      IMG.receipt = '';
+      await reload();
+      say('Payment reported. An admin will confirm it soon.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: add a "Dues" card to the Admin page and open the Dues section
+  const DUES_KNOWN_TABS = [
+    'members', 'villages', 'council', 'donations', 'news',
+    'projects', 'logo', 'donate', 'settings', 'fxdues'
+  ];
+  const _adminDues = window.admin;
+
+  window.admin = function () {
+    if (!isAdmin()) {
+      return _adminDues();
+    }
+
+    if (S.tab === 'fxdues') {
+      return fxAdminDues();
+    }
+
+    let h = _adminDues();
+
+    // The Admin menu is shown for any tab that is not a section
+    if (DUES_KNOWN_TABS.indexOf(S.tab) < 0) {
+      const tile =
+        '<div class="card tile" onclick="S.tab=\'fxdues\';render();window.scrollTo(0,0)">' +
+        '<div class="ic">\uD83D\uDCB3</div>' +
+        '<h3>Dues</h3>' +
+        '<div class="mute">Amounts, payments and who owes</div>' +
+        '</div>';
+      const i = h.lastIndexOf('</div>');
+
+      h = h.slice(0, i) + tile + h.slice(i);
+    }
+
+    return h;
+  };
+
+  // Payments that belong to one member
+  function fxPaymentsOf(m) {
+    return S.fxAll.filter(function (p) {
+      return p.mid === m._id;
+    });
+  }
+
+  // Members that should pay dues (everyone except revoked members)
+  function fxPayingMembers() {
+    return S.mem.filter(function (m) {
+      return m.status !== 'revoked';
+    });
+  }
+
+  function fxAdminDues() {
+    const cfg = S.duesCfg || {};
+    const members = fxPayingMembers();
+    const pending = S.fxAll.filter(function (p) {
+      return p.status === 'pending';
+    });
+    const confirmedTotal = S.fxAll.reduce(function (sum, p) {
+      return p.status === 'confirmed' ? sum + (Number(p.amount) || 0) : sum;
+    }, 0);
+    let paidUp = 0;
+    let owing = 0;
+
+    members.forEach(function (m) {
+      const st = fxDuesStatus(m, fxPaymentsOf(m));
+
+      if (st.active && st.owing === 0) {
+        paidUp += 1;
+      } else if (st.active) {
+        owing += 1;
+      }
+    });
+
+    const parts = [];
+
+    parts.push('<div class="row"><button onclick="S.tab=\'dash\';render()">\u2190 Back to Admin</button></div>');
+    parts.push('<h2>Dues</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxStatCard('Paid up', paidUp));
+    parts.push(fxStatCard('Owing', owing));
+    parts.push(fxStatCard('Pending payments', pending.length));
+    parts.push(fxStatCard('Confirmed total', naira(confirmedTotal)));
+    parts.push('</div>');
+
+    parts.push('<div class="card" style="margin-top:14px">');
+    parts.push('<h3>Dues settings</h3>');
+    parts.push('<label>Monthly amount (\u20a6)</label>');
+    parts.push('<input id="fxc_m" type="number" value="' + esc(cfg.monthly || '') + '">');
+    parts.push('<label>Yearly amount (\u20a6)</label>');
+    parts.push('<input id="fxc_y" type="number" value="' + esc(cfg.yearly || '') + '">');
+    parts.push('<label>Dues start from (month)</label>');
+    parts.push('<input id="fxc_s" type="month" value="' + esc(cfg.startMonth || '') + '">');
+    parts.push('<button class="p" onclick="fxSaveDuesCfg()">Save settings</button>');
+    parts.push('</div>');
+
+    parts.push('<div class="card" style="margin-top:14px">');
+    parts.push('<h3>Record a payment</h3>');
+    parts.push('<label>Member ID</label>');
+    parts.push('<input id="fx_rid" placeholder="e.g. UCA-0002" autocapitalize="characters">');
+    parts.push('<label>Number of months (or years, for a yearly member)</label>');
+    parts.push('<input id="fx_rn" type="number" min="1" value="1">');
+    parts.push('<label>Amount received (\u20a6)</label>');
+    parts.push('<input id="fx_ra" type="number">');
+    parts.push('<label>Reference or note</label>');
+    parts.push('<input id="fx_rr">');
+    parts.push('<button class="p" onclick="fxAdminRecord()">Record payment</button>');
+    parts.push('</div>');
+
+    parts.push('<h2>Pending payments</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxPendingHtml(pending));
+    parts.push('</div>');
+
+    parts.push('<h2>Members</h2>');
+    parts.push('<input placeholder="Search name or ID" value="' + esc(S.fxF.q) + '" oninput="S.fxF.q=this.value;fxRefreshList()">');
+    parts.push('<select onchange="S.fxF.v=this.value;fxRefreshList()">');
+    parts.push('<option value="">All villages/towns</option>');
+    parts.push(fxVillageOptions());
+    parts.push('</select>');
+    parts.push('<select onchange="S.fxF.s=this.value;fxRefreshList()">');
+    parts.push('<option value="">All statuses</option>');
+    parts.push('<option value="owing"' + (S.fxF.s === 'owing' ? ' selected' : '') + '>Owing</option>');
+    parts.push('<option value="paid"' + (S.fxF.s === 'paid' ? ' selected' : '') + '>Paid up</option>');
+    parts.push('</select>');
+    parts.push('<div class="grid" id="fx_list">' + fxMemberListHtml() + '</div>');
+
+    return parts.join('');
+  }
+
+  function fxStatCard(label, value) {
+    return '<div class="card"><div class="mute">' + label + '</div><div class="big">' + value + '</div></div>';
+  }
+
+  function fxVillageOptions() {
+    return S.vil.map(function (x) {
+      const selected = S.fxF.v === x.name ? ' selected' : '';
+
+      return '<option' + selected + '>' + esc(x.name) + '</option>';
+    }).join('');
+  }
+
+  // Pending payments with Confirm and Reject buttons
+  function fxPendingHtml(pending) {
+    if (!pending.length) {
+      return '<div class="card mute">Nothing waiting for confirmation.</div>';
+    }
+
+    return pending.map(function (p) {
+      return '<div class="card">' +
+        '<h3>' + esc(p.name) + '</h3>' +
+        '<div class="mute">' + esc(p.memberId) + ' \u00b7 ' + esc(p.village) + '</div>' +
+        '<div class="big">' + naira(p.amount) + '</div>' +
+        '<div>' + esc(p.count) + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's') + '</div>' +
+        '<div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div>' +
+        (p.receipt ? '<img class="thumb" src="' + esc(p.receipt) + '" alt="Receipt">' : '') +
+        '<div class="row">' +
+        '<button class="p" onclick="fxReview(\'' + p._id + '\',\'confirmed\')">Confirm</button>' +
+        '<button class="d" onclick="fxReview(\'' + p._id + '\',\'rejected\')">Reject</button>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // Member cards with status, filtered by the search box and the two dropdowns
+  function fxMemberListHtml() {
+    const f = S.fxF;
+    const q = String(f.q || '').toLowerCase();
+    const cards = [];
+
+    fxPayingMembers().forEach(function (m) {
+      const st = fxDuesStatus(m, fxPaymentsOf(m));
+      const isOwing = st.active && st.owing > 0;
+      const isPaid = st.active && st.owing === 0;
+
+      if (f.v && m.village !== f.v) {
+        return;
+      }
+
+      if (q && (m.name + ' ' + m.id).toLowerCase().indexOf(q) < 0) {
+        return;
+      }
+
+      if (f.s === 'owing' && !isOwing) {
+        return;
+      }
+
+      if (f.s === 'paid' && !isPaid) {
+        return;
+      }
+
+      const wa = isOwing ? fxWaLink(m, st) : '';
+      let card = '<div class="card">';
+
+      card += '<h3>' + esc(m.name) + '</h3>';
+      card += '<div class="mute">' + esc(m.id) + ' \u00b7 ' + esc(m.village || '') + '</div>';
+      card += fxStatusHtml(st);
+      card += '<div class="mute">' + (st.plan === 'yearly' ? 'Yearly' : 'Monthly') + ' plan</div>';
+      card += '<div class="row">';
+      card += '<button onclick="fxAdminPlan(\'' + m._id + '\')">Switch plan</button>';
+
+      if (wa) {
+        card += '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener">Remind on WhatsApp</a>';
+      }
+
+      card += '</div></div>';
+      cards.push(card);
+    });
+
+    return cards.join('') || '<div class="card mute">No members found.</div>';
+  }
+
+  function fxRefreshList() {
+    const box = $('fx_list');
+
+    if (box) {
+      box.innerHTML = fxMemberListHtml();
+    }
+  }
+
+  // --- Admin actions: save amounts, record a payment, confirm or reject, switch plan
+  async function fxSaveDuesCfg() {
+    try {
+      await setDoc(
+        doc(db, 'settings', 'dues'),
+        {
+          monthly: Number(v('fxc_m')) || 0,
+          yearly: Number(v('fxc_y')) || 0,
+          startMonth: v('fxc_s')
+        },
+        { merge: true }
+      );
+      await reload();
+      say('Dues settings saved.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  async function fxAdminRecord() {
+    const id = v('fx_rid').toUpperCase();
+    const m = S.mem.filter(function (x) {
+      return String(x.id).toUpperCase() === id;
+    })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_rn'), 10);
+    const amount = Number(v('fx_ra'));
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter the number of months or years and the amount.');
+    }
+
+    try {
+      await addDoc(collection(db, 'dues'), {
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_rr'),
+        receipt: '',
+        status: 'confirmed',
+        by: 'admin',
+        date: fxToday(),
+        at: serverTimestamp()
+      });
+      await reload();
+      say('Payment recorded for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  async function fxReview(id, status) {
+    try {
+      await updateDoc(doc(db, 'dues', id), { status: status });
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  async function fxAdminPlan(memberDocId) {
+    const m = S.mem.filter(function (x) {
+      return x._id === memberDocId;
+    })[0];
+
+    if (!m) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', memberDocId), {
+        duesPlan: fxPlanOf(m) === 'yearly' ? 'monthly' : 'yearly'
+      });
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Make the new functions available to the buttons and give them a "working" label
+  Object.assign(window, {
+    fxSetPlan: fxSetPlan,
+    fxDuesCalc: fxDuesCalc,
+    fxPayDues: fxPayDues,
+    fxSaveDuesCfg: fxSaveDuesCfg,
+    fxAdminRecord: fxAdminRecord,
+    fxReview: fxReview,
+    fxAdminPlan: fxAdminPlan,
+    fxRefreshList: fxRefreshList
+  });
+
+  [
+    ['fxSetPlan', 'Saving...'],
+    ['fxPayDues', 'Sending...'],
+    ['fxSaveDuesCfg', 'Saving...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxReview', 'Updating...'],
+    ['fxAdminPlan', 'Saving...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
+
+
+
+
+  
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
   // What it does: makes the new functions available to the buttons, gives
