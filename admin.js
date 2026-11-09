@@ -123,7 +123,7 @@ function admin(){
       + '<label>Mobile</label><input id="ap">'
       + '<label>address</label><input id="ah">'
       
-      + '<label>Village</label><select id="av">' 
+      + '<label>Village / Town</label><select id="av">' 
       + '<option value="kingdom">Kingdom of Uzairue</option>'
       + vopts()
       + '</select>'
@@ -152,6 +152,8 @@ function admin(){
       + '<button class="p" onclick="addSimple(\'villages\',{name:v(\'vn\')},\'vn\')">Add</button>'
       + '</div>'
       + '<div class="grid">'
+           + '<div value="kingdom> Kingdom of Uzairue (Jattu)'
+           + '</div>'
       + S.vil.map(x =>
           '<div class="card">'
         + '<h3>' + esc(x.name) + '</h3>'
