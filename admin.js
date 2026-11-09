@@ -122,11 +122,17 @@ function admin(){
       + '<label>Full name</label><input id="an">'
       + '<label>Mobile</label><input id="ap">'
       + '<label>address</label><input id="ah">'
+      
       + '<label>Village</label><select id="av">' + vopts() + '</select>'
+      + '<option value="kingdom">Kingdom of Uzairue (Jattu)</option>'
+      + S.vil.map(x => '<option>' + esc(x.name) + '</option>').join('')
+      
       + '<label>Email (optional)</label><input id="ae" type="email">'
       + '<label>Photo</label><input type="file" accept="image/*" onchange="pick(this)">'
       + '<button class="p" id="abtn" onclick="submitMember()">Register</button>'
       + '</div>'
+
+      
       + '<h2>Directory</h2>'
       + '<input placeholder="Search name, ID or email" oninput="S.q=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<select onchange="S.vf=this.value;$(\'ml\').innerHTML=memCards()">'
