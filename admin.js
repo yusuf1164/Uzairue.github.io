@@ -152,10 +152,6 @@ function admin(){
       + '<button class="p" onclick="addSimple(\'villages\',{name:v(\'vn\')},\'vn\')">Add</button>'
       + '</div>'
       + '<div class="grid">'
-           + '<div value="Kingdom>'
-            + 'Kindom of Uzairue (Jattu)'
-           + '</div>'
-      
       + S.vil.map(x =>
           '<div class="card">'
         + '<h3>' + esc(x.name) + '</h3>'
