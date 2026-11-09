@@ -156,7 +156,8 @@ function admin(){
         + '<div class="card">'
         + 'Kingdom of Uzairue (Jattu)'
         + '</div>'
-      
+        + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
+        + '</div>'
       + S.vil.map(x =>
           '<div class="card">'
         
