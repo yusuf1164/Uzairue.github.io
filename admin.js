@@ -123,8 +123,10 @@ function admin(){
       + '<label>Mobile</label><input id="ap">'
       + '<label>address</label><input id="ah">'
       
-      + '<label>Village</label><select id="av">' + vopts() + '</select>'
+      + '<label>Village</label><select id="av">' + vopts()
       + '<option value="kingdom">Kingdom of Uzairue</option>'
+      + '</select>'
+      
       
       + '<label>Email (optional)</label><input id="ae" type="email">'
       + '<label>Photo</label><input type="file" accept="image/*" onchange="pick(this)">'
