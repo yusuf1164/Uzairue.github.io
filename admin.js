@@ -131,6 +131,7 @@ function admin(){
       + '<input placeholder="Search name, ID or email" oninput="S.q=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<select onchange="S.vf=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<option value="">All villages</option>'
+      + '<option value="kingdom">Kingdom of Uzairue (Jattu)</option>'
       + S.vil.map(x => '<option>' + esc(x.name) + '</option>').join('')
       + '</select>'
       + '<div class="grid" id="ml">' + memCards() + '</div>';
