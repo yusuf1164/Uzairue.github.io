@@ -418,6 +418,161 @@
     return h;
   };
 
+
+    // ------------------------------------------------------------
+  // PART 3: Hamburger menu
+  // What it does: replaces the row of top buttons with a menu button.
+  // The existing nav() still builds all the buttons. This part moves
+  // "Sign up / Log in" out so it stays visible in the top bar, and
+  // turns the other buttons into a dropdown opened by the menu button.
+  // The page you are on stays highlighted inside the menu.
+  // Closes when you tap an item, tap outside the menu, or press Esc.
+  // ------------------------------------------------------------
+
+  // --- Styles for the menu button, the dropdown and the visible login button
+  const menuStyle = document.createElement('style');
+  menuStyle.textContent =
+    '#nav{' +
+      'display:none;' +
+      'position:absolute;' +
+      'top:100%;' +
+      'right:10px;' +
+      'min-width:220px;' +
+      'max-width:calc(100% - 20px);' +
+      'flex-direction:column;' +
+      'gap:6px;' +
+      'margin:0;' +
+      'padding:10px;' +
+      'background:var(--card);' +
+      'border:1px solid var(--line);' +
+      'border-radius:14px;' +
+      'box-shadow:0 12px 30px rgba(0,0,0,.35);' +
+      'z-index:6;' +
+    '}' +
+    '#nav.fxOpen{display:flex}' +
+    '#nav button{width:100%;text-align:left}' +
+    '#fxAuth{display:flex;gap:6px;margin-left:auto;order:1}' +
+    '#theme{order:2}' +
+    '#fxMenuBtn{order:3;font-size:18px;line-height:1;padding:8px 12px}';
+  document.head.appendChild(menuStyle);
+
+  // --- Creates the menu button and the box for the login button (once)
+  function fxMenuParts() {
+    const header = document.querySelector('header');
+
+    if (!header) {
+      return null;
+    }
+
+    let authBox = document.getElementById('fxAuth');
+    let menuBtn = document.getElementById('fxMenuBtn');
+
+    if (!authBox) {
+      authBox = document.createElement('div');
+      authBox.id = 'fxAuth';
+      header.appendChild(authBox);
+    }
+
+    if (!menuBtn) {
+      menuBtn = document.createElement('button');
+      menuBtn.id = 'fxMenuBtn';
+      menuBtn.type = 'button';
+      menuBtn.setAttribute('aria-label', 'Menu');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.textContent = '\u2630';
+      menuBtn.onclick = fxToggleMenu;
+      header.appendChild(menuBtn);
+    }
+
+    return { authBox: authBox, menuBtn: menuBtn };
+  }
+
+  // --- Opens or closes the dropdown and switches the icon
+  function fxSetMenu(open) {
+    const nav = document.getElementById('nav');
+    const btn = document.getElementById('fxMenuBtn');
+
+    if (!nav || !btn) {
+      return;
+    }
+
+    nav.classList.toggle('fxOpen', open);
+    btn.textContent = open ? '\u2715' : '\u2630';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function fxToggleMenu() {
+    const nav = document.getElementById('nav');
+    const isOpen = nav && nav.classList.contains('fxOpen');
+
+    fxSetMenu(!isOpen);
+  }
+
+  function fxCloseMenu() {
+    fxSetMenu(false);
+  }
+
+  // --- After nav() builds the buttons, move the login button out of the menu
+  function fxMenuSync() {
+    const parts = fxMenuParts();
+    const nav = document.getElementById('nav');
+
+    if (!parts || !nav) {
+      return;
+    }
+
+    parts.authBox.innerHTML = '';
+
+    Array.prototype.slice.call(nav.children).forEach(function (btn) {
+      const click = btn.getAttribute('onclick') || '';
+
+      if (click.indexOf("go('login')") >= 0) {
+        parts.authBox.appendChild(btn);
+      }
+    });
+
+    fxCloseMenu();
+  }
+
+  // --- Run fxMenuSync every time nav() redraws the top buttons
+  const _nav = window.nav;
+
+  window.nav = function () {
+    _nav();
+    fxMenuSync();
+  };
+
+  // --- Close the menu when tapping outside it, or pressing Esc
+  document.addEventListener('click', function (e) {
+    const nav = document.getElementById('nav');
+    const btn = document.getElementById('fxMenuBtn');
+
+    if (!nav || !nav.classList.contains('fxOpen')) {
+      return;
+    }
+
+    if (btn && btn.contains(e.target)) {
+      return;
+    }
+
+    if (nav.contains(e.target)) {
+      setTimeout(fxCloseMenu, 0);
+      return;
+    }
+
+    fxCloseMenu();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      fxCloseMenu();
+    }
+  });
+
+  // --- Set the menu up for the page that is already on screen
+  fxMenuSync();
+
+
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
   // What it does: makes the new functions available to the buttons, gives
