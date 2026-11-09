@@ -1341,7 +1341,33 @@
   });
 
 
+  // ------------------------------------------------------------
+  // COUNCIL: KINGDOM LABEL (paste above the "SECTION: Hook-up and start" part)
+  // What it does: shows "Kingdom of Uzairue" under each village
+  // heading on the Council page. The label is fixed text, not
+  // saved in the database. Only villages that have council
+  // members are shown, as before.
+  // ------------------------------------------------------------
 
+  const KINGDOM_LABEL = 'Kingdom of Uzairue';
+
+  // Keeps the original Council page and adds the label after each village heading
+  const _councilPage = window.council;
+
+  window.council = function () {
+    let html = _councilPage();
+
+    S.vil.forEach(function (vl) {
+      const heading = '<h2>' + esc(vl.name) + '</h2>';
+      const labelled = heading + '<div class="mute">' + KINGDOM_LABEL + '</div>';
+
+      html = html.split(heading).join(labelled);
+    });
+
+    return html;
+  };
+
+  
 
 
   
