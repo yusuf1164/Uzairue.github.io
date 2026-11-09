@@ -125,7 +125,6 @@ function admin(){
       
       + '<label>Village</label><select id="av">' + vopts() + '</select>'
       + '<option value="kingdom">Kingdom of Uzairue (Jattu)</option>'
-      + S.vil.map(x => '<option>' + esc(x.name) + '</option>').join('')
       
       + '<label>Email (optional)</label><input id="ae" type="email">'
       + '<label>Photo</label><input type="file" accept="image/*" onchange="pick(this)">'
@@ -145,7 +144,7 @@ function admin(){
 
   if(t === 'villages'){
     h += '<div class="card">'
-      + '<h3>Add village</h3>'
+      + '<h3>Add village / Town</h3>'
       + '<input id="vn" placeholder="e.g. Jattu">'
       + '<button class="p" onclick="addSimple(\'villages\',{name:v(\'vn\')},\'vn\')">Add</button>'
       + '</div>'
@@ -153,6 +152,7 @@ function admin(){
       + S.vil.map(x =>
           '<div class="card">'
           + '<h3>' + esc(x.name) + '</h3>'
+          + 'Kingdom of Uzairue (Jattu)'
           + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
           + '</div>'
         ).join('')
