@@ -152,14 +152,14 @@ function admin(){
       + '<button class="p" onclick="addSimple(\'villages\',{name:v(\'vn\')},\'vn\')">Add</button>'
       + '</div>'
       + '<div class="grid">'
-           + '<div value="Kingdom> Kingdom of Uzairue (Jattu)'
+           + '<div value="Kingdom>'
+            + 'Kindom of Uzairue (Jattu)'
            + '</div>'
+      
       + S.vil.map(x =>
           '<div class="card">'
         + '<h3>' + esc(x.name) + '</h3>'
         + '<option value="kingdom">Kingdom of Uzairue</option>'
-      
-          
           + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
           + '</div>'
         ).join('')
