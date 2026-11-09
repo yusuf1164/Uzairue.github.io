@@ -154,8 +154,8 @@ function admin(){
       + '<div class="grid">'
       + S.vil.map(x =>
           '<div class="card">'
-        + '<h3>' + esc(x.name) + '</h3>'
-        + '<div class="card">'
+        + '<h3 class ="card">' + esc(x.name) + '</h3>'
+        + '<div>'
         + ' Kingdom of Uzairue'
         + '</div>'
           + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
