@@ -154,9 +154,10 @@ function admin(){
       + '<div class="grid">'
       + S.vil.map(x =>
           '<div class="card">'
-        + '<option value="kingdom">Kingdom of Uzairue (Jattu)</option>'
+        + '<h3>' + esc(x.name) + '</h3>'
+        + '<option value="kingdom">Kingdom of Uzairue</option>'
       
-          + '<h3>' + esc(x.name) + '</h3>'
+          
           + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
           + '</div>'
         ).join('')
