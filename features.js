@@ -2755,7 +2755,7 @@
       + '<h2>Expenses</h2>' + fxExpenseListHtml(true)
       + '<div class="card" style="margin-top:14px"><h3>Totals</h3>'
       + '<p class="mute">Totals update automatically. Use this if they look out of date.</p>'
-      + '<button onclick="fxRecalcNow()">Recalculate totals</button></div>';
+      + '<button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button>';
   }
 
   // --- Render: Finance page, and the total and receipts on the member's Dues page
