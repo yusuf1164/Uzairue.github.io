@@ -29,7 +29,10 @@
     '.donimg{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:10px}' +
     '.scan{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;padding:16px}' +
     '.scan video{max-width:100%;max-height:65vh;border-radius:12px}' +
-    '.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:99px;z-index:60;font-weight:600}';
+    '.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:99px;z-index:60;font-weight:600}' +
+    // NEW: Make all cards in a grid equal height and push buttons to the bottom
+    '.grid > .card{height:100%;display:flex;flex-direction:column}' +
+    '.grid > .card .row:last-child{margin-top:auto}';
   document.head.appendChild(st);
 
   // ------------------------------------------------------------
@@ -2193,6 +2196,7 @@
   S.fxDon = S.fxDon || [];
   S.fxDraft = S.fxDraft || '';
   S.fxDraftParsed = S.fxDraftParsed || null;
+  S.fxAlertQ = S.fxAlertQ || '';
 
   // --- Newest first, by date text (YYYY-MM-DD)
   function fxNewestFirst(a, b) {
@@ -2293,117 +2297,107 @@
 
   // --- Reads any common date format → "YYYY-MM-DD" (or '' if unreadable)
   function fxParseDate(s) {
-  s = String(s || '').trim();
-  if (!s) return '';
+    s = String(s || '').trim();
+    if (!s) return '';
 
-  // Remove ordinal suffixes like 1st, 2nd, 3rd, 10th
-  s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
+    // Remove ordinal suffixes like 1st, 2nd, 3rd, 10th
+    s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
 
-  // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
-  let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
-  if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
+    // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
+    let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
+    if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
 
-  // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
-  m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
-  if (m) {
-    let y = m[3];
-    if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-    return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
-  }
-
-  // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
-  m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
-  if (m) {
-    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
-    if (mo >= 0) {
+    // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
+    m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
+    if (m) {
       let y = m[3];
       if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
+      return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
     }
+
+    // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
+    m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
+    if (m) {
+      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
+      if (mo >= 0) {
+        let y = m[3];
+        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
+      }
+    }
+
+    // Nov 12, 2026 / Nov 12 2026
+    m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
+    if (m) {
+      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
+      if (mo >= 0) {
+        let y = m[3];
+        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
+      }
+    }
+
+    return '';
   }
 
-  // Nov 12, 2026 / Nov 12 2026
-  m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
-  if (m) {
-    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
-    if (mo >= 0) {
-      let y = m[3];
-      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
-    }
-  }
-
-  return '';
-}
   // --- Reads a credit alert (any bank / fintech) and returns pre-filled fields.
   //     Returns { error } for a debit alert; otherwise returns
   //     { amount, date, sender, narration, warnings[] } so the admin
   //     can fix any blank or wrong field before saving.
-    // ------------------------------------------------------------
-  
- function fxParseAlert(text) {
-  const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-  const warnings = [];
+  function fxParseAlert(text) {
+    const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+    const warnings = [];
 
-  const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
-  // Added withdrawal/withdrawn/out to this block
-  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
+    const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
+    const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
 
-  if (debit && !credit) {
-    return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
-  }
-  if (!credit) {
-    warnings.push('No credit keyword found — verify this is an incoming transfer.');
-  }
-
-  // Amount
-  const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
-  const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
-  if (!(amount > 0)) {
-    warnings.push('Amount not found — enter it manually.');
-  }
-
-  // Date
-  let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-  
-  const date = dm ? fxParseDate(dm[1]) : '';
-  if (!date) {
-    warnings.push('Date not found — enter it manually.');
-  }
-
-  // Sender (Advanced)
-  let sender = '';
-  // Try "Name:", "Sender:", "from", etc. Stop at Bank, Acct, Amount, Date, etc.
-  const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
-  
-  if (senderMatch) {
-    sender = senderMatch[1].trim();
-  } else {
-    // Fallback: Grab the first line/chunk of text before the amount
-    const beforeAmt = t.substring(0, amt ? amt.index : 100);
-    const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
-    if (clean.length > 2 && clean.length < 40) {
-      sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+    if (debit && !credit) {
+      return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
     }
+    if (!credit) {
+      warnings.push('No credit keyword found — verify this is an incoming transfer.');
+    }
+
+    const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+    const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
+    if (!(amount > 0)) {
+      warnings.push('Amount not found — enter it manually.');
+    }
+
+    let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
+    if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
+    if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+    const date = dm ? fxParseDate(dm[1]) : '';
+    if (!date) {
+      warnings.push('Date not found — enter it manually.');
+    }
+
+    let sender = '';
+    const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
+    if (senderMatch) {
+      sender = senderMatch[1].trim();
+    } else {
+      const beforeAmt = t.substring(0, amt ? amt.index : 100);
+      const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
+      if (clean.length > 2 && clean.length < 40) {
+        sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+      }
+    }
+    sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
+
+    if (!sender) {
+      warnings.push('Sender not found — enter it manually.');
+    }
+
+    return {
+      amount: amount,
+      date: date,
+      sender: sender,
+      narration: t.replace(/\d{4,}/g, '****'),
+      warnings: warnings
+    };
   }
 
-  // Clean up any leftover bank names from the sender string
-  sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
-
-  if (!sender) {
-    warnings.push('Sender not found — enter it manually.');
-  }
-
-  return {
-    amount: amount,
-    date: date,
-    sender: sender,
-    narration: t.replace(/\d{4,}/g, '****'), // Kept for the database, but hidden in UI
-    warnings: warnings
-  };
-}
   // --- Admin: step 1 — read the pasted alert and show the confirm fields
   function fxParseAlertDraft() {
     const raw = $('fxp_text') ? $('fxp_text').value : '';
@@ -2445,12 +2439,16 @@
     if (!date)        return say('Enter the date.');
     if (!sender)      return say('Enter the sender.');
 
-    const key = [date, amount, sender, narration].join('|');
-
-    if (S.fxAlerts.some(function (a) { return a.key === key; })) {
-      return say('This alert is already saved, so it was not added twice.');
+    // FIX: Prevent duplicate alerts by checking Date, Amount, and Sender
+    const exists = S.fxAlerts.some(function(a) {
+      return a.date === date && Number(a.amount) === amount && a.sender === sender;
+    });
+    if (exists) {
+      return say('An alert with this exact Date, Amount, and Sender is already saved.');
     }
 
+    const key = [date, amount, sender, narration].join('|');
+    
     try {
       await addDoc(collection(db, 'alerts'), {
         date: date,
@@ -2476,6 +2474,21 @@
     S.fxDraft = '';
     S.fxDraftParsed = null;
     render();
+  }
+
+  // --- Admin: delete an alert
+  async function fxDelAlert(id) {
+    if (!confirm('Delete this bank alert?')) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'alerts', id));
+      await fxRecalcFinance();
+      await reload();
+      say('Alert deleted.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
   // --- Admin: match an alert to a waiting bank donation or a pending dues payment
@@ -2757,7 +2770,7 @@
       return '<div class="card">'
         + '<div class="big">' + naira(a.amount) + '</div>'
         + '<h3>' + esc(a.sender) + '</h3>'
-        + '<div class="mute">' + esc(a.date) + '</div>'        
+        + '<div class="mute">' + esc(a.date) + '</div>'
         + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -2806,39 +2819,49 @@
   }
 
   // --- Admin: the Finance section (paste, match, cash, expenses, totals)
-  function fxFinanceAdmin() {
-    const waiting = [];
+  function fxAlertCardsHtml() {
+    const q = String(S.fxAlertQ || '').toLowerCase();
+    const filtered = S.fxAlerts.filter(function(a) {
+      if (!q) return true;
+      return String(a.date).toLowerCase().includes(q) || String(a.sender).toLowerCase().includes(q) || String(a.amount).includes(q);
+    });
 
+    const waiting = [];
     S.fxDon.forEach(function (d) {
       if (d.status === 'waiting') {
         waiting.push({ key: 'donation:' + d._id, label: 'Donation ' + naira(d.amount) + ' · ' + (d.donor || '') + ' · ' + (d.project || '') });
       }
     });
-
     (S.fxAll || []).forEach(function (p) {
       if (p.status === 'pending') {
         waiting.push({ key: 'dues:' + p._id, label: 'Dues ' + naira(p.amount) + ' · ' + (p.name || '') + ' · ' + (p.memberId || '') });
       }
     });
-
     const opts = waiting.map(function (w) {
       return '<option value="' + esc(w.key) + '">' + esc(w.label) + '</option>';
     }).join('');
 
-    const alertCards = S.fxAlerts.map(function (a) {
-      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div>';
-
+    const alertCards = filtered.map(function (a) {
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute" style="margin-bottom:8px">' + esc(a.date) + '</div>';
       if (a.matchedTo) {
-        return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
+        return '<div class="card">' + head + '<span class="tag a" style="margin-bottom:8px">Matched</span><div class="row"><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div></div>';
       }
-
       return '<div class="card">' + head
         + '<label>Match to a waiting payment</label>'
         + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
-        + '<div class="row"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button></div>'
+        + '<div class="row" style="gap:8px"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>'
         + '</div>';
-    }).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
+    }).join('') || '<div class="card mute">No matching bank alerts saved yet.</div>';
+    
+    return '<div class="grid">' + alertCards + '</div>';
+  }
 
+  function fxRefreshAlerts() {
+    const box = $('fx_alert_list');
+    if (box) box.innerHTML = fxAlertCardsHtml();
+  }
+
+  function fxFinanceAdmin() {
     const pendingCards = (S.fxAll || []).filter(function (p) {
       return p.status === 'pending';
     }).map(function (p) {
@@ -2847,7 +2870,6 @@
         + '<div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
     }).join('') || '<div class="card mute">No member payments waiting.</div>';
 
-    // Bank alert: paste → read → confirm → save
     let pasteBlock = '<div class="card"><h3>Paste a bank alert</h3>'
       + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
       + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
@@ -2879,7 +2901,9 @@
     return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
       + '<h2>Finance</h2>'
       + pasteBlock
-      + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
+      + '<h2>Bank alerts</h2>'
+      + '<input placeholder="Search alerts by date, sender, or amount" value="' + esc(S.fxAlertQ) + '" oninput="S.fxAlertQ=this.value;fxRefreshAlerts()" style="margin-bottom:14px">'
+      + '<div id="fx_alert_list">' + fxAlertCardsHtml() + '</div>'
       + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
       + '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>'
       + '<label>Date</label><input id="fxe_date" type="date" value="' + fxToday() + '">'
@@ -3001,7 +3025,7 @@
           + '<button class="p" onclick="fxAdminRecord()">Record payment</button>'
       );
     }
-    
+
     return h;
   };
 
@@ -3012,11 +3036,13 @@
     fxConfirmAlert: fxConfirmAlert,
     fxCancelAlert: fxCancelAlert,
     fxMatchAlert: fxMatchAlert,
+    fxDelAlert: fxDelAlert,
     fxConfirmCash: fxConfirmCash,
     fxSaveExpense: fxSaveExpense,
     fxDelExpense: fxDelExpense,
     fxRecalcNow: fxRecalcNow,
-    fxDownloadReceipt: fxDownloadReceipt
+    fxDownloadReceipt: fxDownloadReceipt,
+    fxRefreshAlerts: fxRefreshAlerts
   });
 
   [
@@ -3024,6 +3050,7 @@
     ['fxAdminRecord', 'Recording...'],
     ['fxConfirmAlert', 'Saving...'],
     ['fxMatchAlert', 'Matching...'],
+    ['fxDelAlert', 'Deleting...'],
     ['fxConfirmCash', 'Saving...'],
     ['fxSaveExpense', 'Saving...'],
     ['fxDelExpense', 'Deleting...'],
