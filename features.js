@@ -2359,13 +2359,13 @@
     warnings.push('Amount not found — enter it manually.');
   }
 
-  // Look for a date. Try labelled first (Date:, on), then any "Nov 10th, 2026" or "10/11/2026" pattern.
-  let dm = t.match(/(?:Date|on)\s*[:\-]?\s*(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-  
-  const date = dm ? fxParseDate(dm[1]) : '';
-  if (!date) {
+  // Look for a date. Handles "Nov 10th, 2026", "10th Nov 2026", and "10/11/2026"
+let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
+if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
+if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+
+const date = dm ? fxParseDate(dm[1]) : '';
+    if (!date) {
     warnings.push('Date not found — enter it manually.');
   }
 
