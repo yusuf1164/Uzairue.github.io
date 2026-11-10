@@ -2292,10 +2292,14 @@
       return m ? m[1].trim() : '';
     };
 
-    const txn = grab(/Txn:\s*([A-Za-z]+)/i);
+    const txn = grab(/Txn:\s*([A-Za-z]+)/i).toLowerCase();
 
-    if (txn.toLowerCase() !== 'credit') {
-      return { error: 'Only credit alerts can be saved. Debit alerts are ignored.' };
+    if (['debit', 'dr'].indexOf(txn) >= 0) {
+      return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
+    }
+
+    if (['credit', 'cr'].indexOf(txn) < 0) {
+      return { error: 'Could not read the transaction type (Credit or CR).' };
     }
 
     const amount = Number(grab(/Amt:\s*([^\n]+)/i).replace(/[^0-9.]/g, ''));
@@ -2329,7 +2333,11 @@
 
   // --- Admin: save a pasted alert (the pasted text itself is never stored)
   async function fxSaveAlert() {
-    const r = fxParseAlert(v('fxp_text'));
+    const raw = $('fxp_text') ? $('fxp_text').value : '';
+
+    S.fxDraft = raw;
+
+    const r = fxParseAlert(raw);
 
     if (r.error) {
       return say(r.error);
@@ -2351,6 +2359,7 @@
         matchedTo: '',
         at: serverTimestamp()
       });
+      S.fxDraft = '';
       await fxRecalcFinance();
       await reload();
       say('Bank alert saved.');
@@ -2732,7 +2741,7 @@
       + '<h2>Finance</h2>'
       + '<div class="card"><h3>Paste a bank alert</h3>'
       + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
-      + '<textarea id="fxp_text" rows="5"></textarea>'
+      + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
       + '<button class="p" onclick="fxSaveAlert()">Save bank alert</button></div>'
       + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
       + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
