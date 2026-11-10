@@ -1369,6 +1369,273 @@
 
   
 
+  // ------------------------------------------------------------
+  // CLAIM: ADMIN-REGISTERED MEMBERS LOG IN
+  // (paste above the "SECTION: Hook-up and start" part)
+  // What it does:
+  //   1. When an admin registers a member with an email, a claim is saved
+  //      under that email (in lower case).
+  //   2. The person signs up with the same email and verifies it by link.
+  //   3. Once verified, their new login record takes over the admin's
+  //      record: same ID, name, village, address, phone, photo, dues plan
+  //      and join date. The admin's record is marked as claimed and hidden
+  //      from the admin member list.
+  //   4. Admins see a "Member logins" panel on the Members page. It shows
+  //      "Enable login" for older records, "Waiting" or "Linked", and a
+  //      "Move dues to login" button for payments made before the claim.
+  // Needs the Firebase rules for: members (read and claim), and claims.
+  // ------------------------------------------------------------
+
+  // --- Fields copied from the admin's record to the member's login record
+  const CLAIM_FIELDS = [
+    'name', 'id', 'village', 'address', 'house', 'phone', 'email',
+    'img', 'occupation', 'dob', 'duesPlan', 'createdAt'
+  ];
+
+  S.fxClaims = S.fxClaims || {};
+
+  // --- Lower-case email, used as the claim key
+  function fxEmailKey(e) {
+    return String(e || '').trim().toLowerCase();
+  }
+
+  // --- Admin: load claims, and hide records that a member has taken over
+  const _loadAdminClaim = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminClaim();
+
+    S.fxClaims = {};
+    (await list('claims')).forEach(function (c) {
+      S.fxClaims[c._id] = c;
+    });
+
+    S.mem = S.mem.filter(function (m) {
+      return !m.claimedBy;
+    });
+  };
+
+  // --- Save a claim for one admin-made member record
+  async function fxMakeClaim(m) {
+    const key = fxEmailKey(m.email);
+
+    if (!key) {
+      return;
+    }
+
+    if (m.email !== key) {
+      await updateDoc(doc(db, 'members', m._id), { email: key });
+    }
+
+    await setDoc(doc(db, 'claims', key), {
+      memberDocId: m._id,
+      memberId: m.id,
+      name: m.name || '',
+      claimed: false
+    });
+  }
+
+  // --- Admin: after a new member is registered with an email, save their claim
+  const _submitClaim = window.submitMember;
+
+  window.submitMember = async function () {
+    const editing = S.editId;
+    const email = fxEmailKey(v('ae'));
+
+    await _submitClaim();
+
+    if (editing || !email || !/^Registered/.test(S.msg || '')) {
+      return;
+    }
+
+    if (S.fxClaims[email]) {
+      return;
+    }
+
+    const newest = S.mem
+      .filter(function (m) {
+        return fxEmailKey(m.email) === email && !m.claimedBy;
+      })
+      .sort(function (a, b) {
+        return parseInt(String(b.id).slice(4), 10) - parseInt(String(a.id).slice(4), 10);
+      })[0];
+
+    if (newest) {
+      try {
+        await fxMakeClaim(newest);
+        await reload();
+      } catch (e) {
+        say(e.message);
+      }
+    }
+  };
+
+  // --- Admin: "Enable login" for an older record that has no claim yet
+  async function fxEnableLogin(docId) {
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
+    if (!m || !fxEmailKey(m.email)) {
+      return say('This member has no email, so they cannot log in.');
+    }
+
+    if (S.fxClaims[fxEmailKey(m.email)]) {
+      return say('Login is already enabled for this email.');
+    }
+
+    try {
+      await fxMakeClaim(m);
+      await reload();
+      say('Login enabled. Ask ' + m.name + ' to sign up with ' + fxEmailKey(m.email) + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: move payments recorded on the old record to the member's login
+  async function fxMoveDues(docId) {
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
+    if (!m || !m.legacyDocId) {
+      return;
+    }
+
+    const rows = (S.fxAll || []).filter(function (p) {
+      return p.mid === m.legacyDocId;
+    });
+
+    try {
+      for (const p of rows) {
+        await updateDoc(doc(db, 'dues', p._id), { mid: m._id, uid: m._id });
+      }
+
+      await reload();
+      say('Moved ' + rows.length + ' payment(s) to the login.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Member: when verified, take over the admin's record if a claim exists
+  async function fxClaimLogin() {
+    if (!cfgOk || !S.user || !S.user.emailVerified || !S.me) {
+      return;
+    }
+
+    if (S.me._id !== S.user.uid) {
+      return;
+    }
+
+    const key = fxEmailKey(S.user.email);
+
+    if (!key) {
+      return;
+    }
+
+    try {
+      const c = await getDoc(doc(db, 'claims', key));
+
+      if (!c.exists() || c.data().claimed) {
+        return;
+      }
+
+      const claim = c.data();
+      const oldRef = doc(db, 'members', claim.memberDocId);
+      const o = await getDoc(oldRef);
+
+      if (!o.exists() || o.data().claimedBy) {
+        return;
+      }
+
+      const old = o.data();
+      const fields = {};
+
+      CLAIM_FIELDS.forEach(function (k) {
+        if (old[k] !== undefined) {
+          fields[k] = old[k];
+        }
+      });
+
+      fields.id = claim.memberId;
+      fields.email = key;
+      fields.legacyDocId = claim.memberDocId;
+
+      await updateDoc(doc(db, 'members', S.user.uid), fields);
+      await updateDoc(oldRef, { claimedBy: S.user.uid });
+      await updateDoc(doc(db, 'claims', key), { claimed: true, claimedUid: S.user.uid });
+
+      const n = await getDoc(doc(db, 'members', S.user.uid));
+
+      S.me = Object.assign({ _id: S.user.uid }, n.data());
+      await fxLoadMine();
+      S.msg = 'Your account is linked to ' + claim.memberId + '. Welcome!';
+    } catch (e) {
+      S.msg = 'We could not link your account yet. Please tell the admin.';
+    }
+  }
+
+  // --- Run the claim check every time the public data loads
+  const _loadPubClaim = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubClaim();
+    await fxClaimLogin();
+  };
+
+  // --- Admin Members page: the "Member logins" panel above the directory
+  function fxLoginPanelHtml() {
+    const rows = [];
+
+    S.mem.forEach(function (m) {
+      if (m.legacyDocId) {
+        const moveBtn = S.fxAll.some(function (p) { return p.mid === m.legacyDocId; })
+          ? '<button onclick="fxMoveDues(\'' + m._id + '\')">Move dues to login</button>'
+          : '';
+
+        rows.push(
+          '<div class="card"><h3>' + esc(m.name) + '</h3>'
+          + '<div class="mute">' + esc(m.id) + ' · Linked to login</div>'
+          + '<div class="row">' + moveBtn + '</div></div>'
+        );
+      } else if (m.byAdmin && fxEmailKey(m.email)) {
+        const c = S.fxClaims[fxEmailKey(m.email)];
+        const status = c ? 'Waiting for sign-up with ' + esc(fxEmailKey(m.email)) : 'No login yet';
+        const btn = c ? '' : '<button class="p" onclick="fxEnableLogin(\'' + m._id + '\')">Enable login</button>';
+
+        rows.push(
+          '<div class="card"><h3>' + esc(m.name) + '</h3>'
+          + '<div class="mute">' + esc(m.id) + ' · ' + status + '</div>'
+          + '<div class="row">' + btn + '</div></div>'
+        );
+      }
+    });
+
+    return '<h2>Member logins</h2><div class="grid">'
+      + (rows.join('') || '<div class="card mute">No member logins to show.</div>')
+      + '</div>';
+  }
+
+  const _adminClaim = window.admin;
+
+  window.admin = function () {
+    const h = _adminClaim();
+
+    if (!isAdmin() || S.tab !== 'members') {
+      return h;
+    }
+
+    return h.replace('<h2>Directory</h2>', fxLoginPanelHtml() + '<h2>Directory</h2>');
+  };
+
+  Object.assign(window, { fxEnableLogin: fxEnableLogin, fxMoveDues: fxMoveDues });
+
+  [['fxEnableLogin', 'Enabling...'], ['fxMoveDues', 'Moving...']].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
 
   
   // ------------------------------------------------------------
