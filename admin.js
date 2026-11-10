@@ -122,9 +122,7 @@ function admin(){
       + '<label>Full name</label><input id="an">'
       + '<label>Mobile</label><input id="ap">'
       + '<label>address</label><input id="ah">'
-      
       + '<label>Village / Town</label><select id="av">' 
-      + '<option value="kingdom">Kingdom of Uzairue</option>'
       + vopts()
       + '</select>'
       
@@ -139,7 +137,6 @@ function admin(){
       + '<input placeholder="Search name, ID or email" oninput="S.q=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<select onchange="S.vf=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<option value="">All villages</option>'
-      + '<option value="kingdom">Kingdom of Uzairue</option>'
       + S.vil.map(x => '<option>' + esc(x.name) + '</option>').join('')
       + '</select>'
       + '<div class="grid" id="ml">' + memCards() + '</div>';
