@@ -1812,6 +1812,361 @@
 
 
 
+  // ------------------------------------------------------------
+  // GIFTS: BANK DETAILS AND MEMBER LIST
+  // (paste above the "SECTION: Hook-up and start" part, after the auto cleanup block)
+  // What it does:
+  //   1. Members add their bank account on their profile, with a switch
+  //      "Show my account to other members" (off by default).
+  //   2. A member list (directory) holds each member's name, ID, village
+  //      and photo, and the account only when the switch is on.
+  //   3. The "Members" page, for logged-in members, lists everyone.
+  //      Gift opens the account with a Copy button.
+  //   4. Admins can add bank details for members who can't log in, and
+  //      refresh the list from the "Accounts & gifts" section. The list
+  //      also refreshes when an admin saves a member.
+  // Needs the Firebase rules for "directory" (see firestore.rules).
+  // ------------------------------------------------------------
+
+  S.fxDir = S.fxDir || [];
+
+  // --- Small style for the on/off switch
+  const giftStyle = document.createElement('style');
+
+  giftStyle.textContent = '.fxSwitch{display:flex;gap:8px;align-items:center}.fxSwitch input{width:auto}';
+  document.head.appendChild(giftStyle);
+
+  // --- Writes one member's entry in the list. The account is included only when switched on.
+  async function fxWriteDirectory(m) {
+    if (!m || !m.id) {
+      return;
+    }
+
+    const entry = {
+      memberId: m.id,
+      name: m.name || '',
+      village: m.village || '',
+      img: m.img || '',
+      showAcct: !!(m.showAcct && m.acct)
+    };
+
+    if (entry.showAcct) {
+      entry.bank = m.bank || '';
+      entry.acct = m.acct;
+      entry.acctName = m.acctName || '';
+    }
+
+    await setDoc(doc(db, 'directory', m.id), entry);
+  }
+
+  // --- Loads the member list for verified members
+  async function fxLoadDirectory() {
+    S.fxDir = [];
+
+    if (!cfgOk || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    try {
+      S.fxDir = (await list('directory')).sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+      });
+    } catch (e) {
+      S.fxDir = [];
+    }
+  }
+
+  const _loadPubGifts = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubGifts();
+    await fxLoadDirectory();
+  };
+
+  // --- Member: save their own bank details and update their list entry
+  async function fxSaveGift() {
+    const m = S.me;
+
+    if (!m) {
+      return;
+    }
+
+    const box = document.getElementById('fxg_show');
+    const next = {
+      bank: v('fxg_bank'),
+      acct: v('fxg_acct'),
+      acctName: v('fxg_name'),
+      showAcct: !!(box && box.checked)
+    };
+
+    if (next.showAcct && !next.acct) {
+      return say('Add your account number before showing it to others.');
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', m._id), next);
+      S.me = Object.assign({}, m, next);
+      await fxWriteDirectory(S.me);
+      await fxLoadDirectory();
+      say('Bank details saved.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Profile: the bank card for the member's own profile
+  function fxGiftCardHtml(m) {
+    return '<div class="card" style="margin-top:14px">'
+      + '<h3>Bank account for gifts</h3>'
+      + '<p class="mute">Used when other members want to gift you. Turn on the switch to show it to them.</p>'
+      + '<label>Bank name</label><input id="fxg_bank" value="' + esc(m.bank || '') + '">'
+      + '<label>Account number</label><input id="fxg_acct" inputmode="numeric" value="' + esc(m.acct || '') + '">'
+      + '<label>Account name</label><input id="fxg_name" value="' + esc(m.acctName || '') + '">'
+      + '<label class="fxSwitch"><input id="fxg_show" type="checkbox"' + (m.showAcct ? ' checked' : '') + '> Show my account to other members</label>'
+      + '<button class="p" onclick="fxSaveGift()">Save bank details</button>'
+      + '</div>';
+  }
+
+  // --- Members page: everyone in the list, with Gift where an account is shared
+  function fxMembersPageHtml() {
+    if (!S.user || !S.user.emailVerified) {
+      return '<div class="card">Verify your email to see members.</div>';
+    }
+
+    const me = S.me ? S.me.id : '';
+    const cards = S.fxDir.map(function (d) {
+      const pic = d.img
+        ? '<img class="av" src="' + esc(d.img) + '" alt="">'
+        : '<div class="av">' + esc(String(d.name || '?').charAt(0).toUpperCase()) + '</div>';
+      const who = d.memberId === me ? ' (you)' : '';
+      const btn = d.showAcct
+        ? '<button class="p" onclick="fxGiftOpen(\'' + esc(d.memberId) + '\')">Gift</button>'
+        : '<span class="mute">No account shared</span>';
+
+      return '<div class="card mem">' + pic
+        + '<h3>' + esc(d.name) + esc(who) + '</h3>'
+        + '<div class="mute">' + esc(d.memberId) + ' · ' + esc(d.village || '') + '</div>'
+        + '<div class="row" style="justify-content:center">' + btn + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<h2>Members</h2>'
+      + '<p class="mute">Everyone in the community. Members who share their account can receive gifts from you.</p>'
+      + '<div class="grid">' + (cards || '<div class="card mute">No members yet.</div>') + '</div>';
+  }
+
+  // --- Gift: opens the member's account with a Copy button
+  function fxGiftOpen(memberId) {
+    const d = S.fxDir.filter(function (x) {
+      return x.memberId === memberId;
+    })[0];
+
+    if (!d || !d.showAcct) {
+      return say('This member has not shared an account.');
+    }
+
+    fxCloseDonate();
+
+    const box = document.createElement('div');
+
+    box.className = 'modal';
+    box.id = 'donModal';
+    box.onclick = function (e) {
+      if (e.target === box) {
+        fxCloseDonate();
+      }
+    };
+    box.innerHTML = '<div class="card"><h3>Gift to ' + esc(d.name) + '</h3>'
+      + '<p class="mute">Send your gift to this account from your bank app.</p>'
+      + acctHtml({ bank: d.bank, acct: d.acct, name: d.acctName })
+      + '<div class="row"><button onclick="fxCloseDonate()">Close</button></div></div>';
+    document.body.appendChild(box);
+  }
+
+  // --- Render: Members page, and the bank card on the member's own profile
+  const _renderGifts = window.render;
+
+  window.render = function () {
+    if (S.ready && S.view === 'memberlist' && (!S.user || !S.user.emailVerified)) {
+      S.view = S.user ? 'verify' : 'home';
+    }
+
+    _renderGifts();
+
+    const app = $('app');
+
+    if (!app) {
+      return;
+    }
+
+    if (S.view === 'me' && !S.card && S.me) {
+      app.insertAdjacentHTML('beforeend', fxGiftCardHtml(S.me));
+    }
+
+    if (S.view === 'memberlist') {
+      app.innerHTML = fxMembersPageHtml();
+    }
+  };
+
+  // --- Menu: "Members" for verified members
+  const _navGifts = window.nav;
+
+  window.nav = function () {
+    _navGifts();
+
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+
+    btn.textContent = 'Members';
+    btn.setAttribute('onclick', "go('memberlist')");
+
+    if (S.view === 'memberlist') {
+      btn.classList.add('on');
+    }
+
+    const out = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (out) {
+      nav.insertBefore(btn, out);
+    } else {
+      nav.appendChild(btn);
+    }
+  };
+
+  // --- Admin: list entries for every active member, and remove revoked members
+  async function fxSyncDirectory() {
+    for (const m of S.mem) {
+      if (m.status === 'revoked') {
+        await deleteDoc(doc(db, 'directory', m.id));
+      } else {
+        await fxWriteDirectory(m);
+      }
+    }
+
+    await fxLoadDirectory();
+  }
+
+  async function fxRefreshDirectory() {
+    try {
+      await fxSyncDirectory();
+      say('Member list refreshed.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: after a member is saved, refresh the list too
+  const _subGifts = window.submitMember;
+
+  window.submitMember = async function () {
+    await _subGifts();
+
+    if (isAdmin() && /^(Saved|Registered)/.test(S.msg || '')) {
+      try {
+        await fxSyncDirectory();
+      } catch (e) {
+        // The list can still be refreshed with the button
+      }
+    }
+  };
+
+  // --- Admin: bank details for a member by ID
+  async function fxAdminBank() {
+    const id = v('fxa_id').toUpperCase();
+    const m = S.mem.filter(function (x) {
+      return String(x.id).toUpperCase() === id;
+    })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const box = document.getElementById('fxa_show');
+    const next = {
+      bank: v('fxa_bank'),
+      acct: v('fxa_acct'),
+      acctName: v('fxa_name'),
+      showAcct: !!(box && box.checked)
+    };
+
+    if (next.showAcct && !next.acct) {
+      return say('Add the account number before showing it to others.');
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', m._id), next);
+      await fxWriteDirectory(Object.assign({}, m, next));
+      await reload();
+      say('Bank details saved for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: "Accounts & gifts" tile and page
+  const _adminGifts = window.admin;
+
+  window.admin = function () {
+    if (isAdmin() && S.tab === 'fxgifts') {
+      return fxGiftsAdmin();
+    }
+
+    let h = _adminGifts();
+
+    if (isAdmin() && S.tab === 'dash') {
+      const tile = '<div class="card tile" onclick="S.tab=\'fxgifts\';render();window.scrollTo(0,0)">'
+        + '<div class="ic">🎁</div>'
+        + '<h3>Accounts &amp; gifts</h3>'
+        + '<div class="mute">Bank details and the member list</div>'
+        + '</div>';
+      const i = h.lastIndexOf('</div>');
+
+      h = h.slice(0, i) + tile + h.slice(i);
+    }
+
+    return h;
+  };
+
+  function fxGiftsAdmin() {
+    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
+      + '<h2>Accounts &amp; gifts</h2>'
+      + '<div class="card"><h3>Bank details for a member</h3>'
+      + '<p class="mute">Use this for members who cannot log in.</p>'
+      + '<label>Member ID</label><input id="fxa_id" placeholder="e.g. UCA-0002" autocapitalize="characters">'
+      + '<label>Bank name</label><input id="fxa_bank">'
+      + '<label>Account number</label><input id="fxa_acct" inputmode="numeric">'
+      + '<label>Account name</label><input id="fxa_name">'
+      + '<label class="fxSwitch"><input id="fxa_show" type="checkbox"> Show this account to other members</label>'
+      + '<button class="p" onclick="fxAdminBank()">Save bank details</button>'
+      + '</div>'
+      + '<div class="card" style="margin-top:14px"><h3>Member list</h3>'
+      + '<p class="mute">Rebuilds the list members see. It also refreshes each time you save a member.</p>'
+      + '<button onclick="fxRefreshDirectory()">Refresh member list</button>'
+      + '</div>';
+  }
+
+  Object.assign(window, {
+    fxSaveGift: fxSaveGift,
+    fxGiftOpen: fxGiftOpen,
+    fxAdminBank: fxAdminBank,
+    fxRefreshDirectory: fxRefreshDirectory
+  });
+
+  [
+    ['fxSaveGift', 'Saving...'],
+    ['fxAdminBank', 'Saving...'],
+    ['fxRefreshDirectory', 'Refreshing...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
 
   
   // ------------------------------------------------------------
