@@ -1,12 +1,24 @@
 // ============================================================
 // FILE: features.js  (load it AFTER app.js)
 // What it does: adds the new features WITHOUT editing the existing files.
+//   - images for news and projects, and a banner for the Donate section
+//   - Donate button that opens a panel with account details and a Copy button
+//   - bank account fields (bank, number, name) instead of a link
+//   - Logo section for admins (used in the top bar, home banner and ID card)
+//   - new ID card design with the logo and a QR code
+//   - "Scan ID card" in the admin member form (QR fills the edit form)
+// How: it replaces a few functions (home, admin, drawCard, loadPub) with
+// extended versions and adds new ones. Delete this file and its <script>
+// line and the app goes back to exactly how it was.
+//   - PART 2: occupation, date of birth, age and address on the ID card
+// All new function names start with "fx" so they never clash with your own code.
 // ============================================================
 (function () {
   'use strict';
 
   // ------------------------------------------------------------
   // SECTION: Extra styles
+  // What it does: styles for the donate panel, scanner, toast and previews.
   // ------------------------------------------------------------
   const st = document.createElement('style');
   st.textContent =
@@ -17,14 +29,13 @@
     '.donimg{width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:10px}' +
     '.scan{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;padding:16px}' +
     '.scan video{max-width:100%;max-height:65vh;border-radius:12px}' +
-    '.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:99px;z-index:60;font-weight:600}' +
-    // FIX: Make all cards in a grid equal height and align buttons to the bottom
-    '.grid > .card{height:100%;display:flex;flex-direction:column}' +
-    '.grid > .card .row:last-child{margin-top:auto}';
+    '.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:99px;z-index:60;font-weight:600}';
   document.head.appendChild(st);
 
   // ------------------------------------------------------------
   // SECTION: Library loader
+  // What it does: loads the QR code maker (and, on demand, the QR reader)
+  // from the jsDelivr CDN one time, and lets other code wait for them.
   // ------------------------------------------------------------
   const QR_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
   const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
@@ -40,6 +51,8 @@
 
   // ------------------------------------------------------------
   // SECTION: Small helpers
+  // What it does: image check, toast message, copy-to-clipboard and a
+  // rounded-rectangle painter used by the ID card.
   // ------------------------------------------------------------
   const imgOk = function (u) { return /^(https?:\/\/|data:image\/)/i.test(u || '') ? u : ''; };
   function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 1600); }
@@ -50,7 +63,9 @@
   function rr(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); x.fill(); }
 
   // ------------------------------------------------------------
-  // SECTION: Site settings
+  // SECTION: Site settings (logo, banner, community account)
+  // What it does: reads the settings/site document, shows the logo in the
+  // top bar, and refreshes it every time the public data is loaded.
   // ------------------------------------------------------------
   S.site = S.site || {};
   function applyLogo() {
@@ -67,6 +82,8 @@
 
   // ------------------------------------------------------------
   // SECTION: Image picker
+  // What it does: reads a chosen image, shrinks it (so it fits in the
+  // database), keeps it in IMG under a key and shows a preview.
   // ------------------------------------------------------------
   const IMG = {};
   function fxPick(inp, key, max, png) {
@@ -87,6 +104,8 @@
 
   // ------------------------------------------------------------
   // SECTION: Donate panel
+  // What it does: shows the bank details (a project's own account, or the
+  // community account) in a pop-up with a Copy button.
   // ------------------------------------------------------------
   const acctOf = function (p) { const s = S.site || {}; return (p && (p.acct || p.bank)) ? { bank: p.bank, acct: p.acct, name: p.acctName } : { bank: s.bank, acct: s.acct, name: s.acctName }; };
   function acctHtml(a) {
@@ -104,7 +123,10 @@
   }
 
   // ------------------------------------------------------------
-  // SECTION: Home page
+  // SECTION: Home page (replaces home)
+  // What it does: same home page as before, plus the logo, news and
+  // project images, a Donate button on every project and a Donate section
+  // with a banner image and the community account.
   // ------------------------------------------------------------
   window.home = function () {
     const s = S.site || {};
@@ -122,7 +144,8 @@
   };
 
   // ------------------------------------------------------------
-  // SECTION: Admin: News
+  // SECTION: Admin: News (image upload)
+  // What it does: the News section with an image field; shows thumbnails.
   // ------------------------------------------------------------
   const back = '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>';
   function newsAdmin() {
@@ -136,7 +159,9 @@
   }
 
   // ------------------------------------------------------------
-  // SECTION: Admin: Projects
+  // SECTION: Admin: Projects (image + bank account)
+  // What it does: the Projects section with an image and account fields
+  // (bank name, account number, account name) instead of a donation link.
   // ------------------------------------------------------------
   function projectsAdmin() {
     let h = back + '<h2>Projects</h2><div class="card"><h3>Create project</h3><label>Title</label><input id="fp_t"><label>Description</label><textarea id="fp_b" rows="2"></textarea><label>Target amount (₦)</label><input id="fp_g" type="number"><label>Image (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'proj\',900)"><img id="pv_proj" class="pv" style="display:none"><label>Bank name (optional, otherwise the community account is used)</label><input id="fp_bank"><label>Account number</label><input id="fp_no" inputmode="numeric"><label>Account name</label><input id="fp_nm"><button class="p" onclick="fxAddProject()">Create</button></div><div class="grid">';
@@ -159,6 +184,8 @@
 
   // ------------------------------------------------------------
   // SECTION: Admin: Logo
+  // What it does: lets an admin upload the community logo (kept
+  // transparent) and saves it in settings/site.
   // ------------------------------------------------------------
   function logoAdmin() {
     return back + '<h2>Logo</h2><div class="card"><h3>Community logo</h3><p class="mute">Shown in the top bar, the home banner and the ID card.</p>' + (S.site.logo ? '<img class="pv" src="' + esc(S.site.logo) + '" alt="" style="background:#fff;padding:6px">' : '') + '<label>Choose a new logo (a PNG with a clear background works best)</label><input type="file" accept="image/*" onchange="fxPick(this,\'logo\',500,true)"><img id="pv_logo" class="pv" style="display:none;background:#fff;padding:6px"><button class="p" onclick="fxSaveLogo()">Save logo</button></div>';
@@ -170,6 +197,8 @@
 
   // ------------------------------------------------------------
   // SECTION: Admin: Donate page
+  // What it does: sets the Donate banner image and the community bank
+  // account shown on the home page and in the Donate panel.
   // ------------------------------------------------------------
   function donateAdmin() {
     const s = S.site || {};
@@ -181,6 +210,9 @@
 
   // ------------------------------------------------------------
   // SECTION: Admin page (replaces admin)
+  // What it does: News, Projects, Logo and Donate page use the new screens
+  // above. Everything else is the original admin page, with two extra
+  // cards (Logo, Donate page) and a "Scan ID card" button in the member form.
   // ------------------------------------------------------------
   const _admin = window.admin;
   window.admin = function () {
@@ -204,7 +236,12 @@
   };
 
   // ------------------------------------------------------------
-  // SECTION: ID card
+  // SECTION: ID card (replaces drawCard)
+  // What it does: paints the new card: dark green curved left panel with
+  // the member's name, title, ID, village, house, phone and status; lime
+  // green right panel with the logo, "UZAIRUE COMMUNITY CARD", the member
+  // photo and a QR code that holds the member ID. The logo is also the
+  // faint background. No icons.
   // ------------------------------------------------------------
   window.drawCard = async function (m, id) {
     const c = $(id); if (!c) return;
@@ -214,19 +251,23 @@
     const load = function (src) { return new Promise(function (r) { if (!src) return r(null); const i = new Image(); i.onload = function () { r(i); }; i.onerror = function () { r(null); }; i.src = src; }); };
     const imgs = await Promise.all([load((S.site || {}).logo), load(m.img)]), logo = imgs[0], photo = imgs[1];
     const LIME = '#7ddc1f', PALE = '#c8f06a';
+    // panels
     let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0d4a1a'); g.addColorStop(1, '#16802d'); x.fillStyle = g; x.fillRect(0, 0, W, H);
     x.fillStyle = '#0b3d17'; x.beginPath(); x.moveTo(0, 0); x.lineTo(590, 0); x.bezierCurveTo(735, 140, 725, 330, 495, H); x.lineTo(0, H); x.closePath(); x.fill();
     g = x.createLinearGradient(0, 0, 560, H); g.addColorStop(0, '#031a08'); g.addColorStop(1, '#06300f'); x.fillStyle = g;
     x.beginPath(); x.moveTo(0, 0); x.lineTo(565, 0); x.bezierCurveTo(705, 140, 695, 330, 470, H); x.lineTo(0, H); x.closePath(); x.fill();
+    // faint logo background
     x.save(); x.globalAlpha = 0.07;
     if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
     else { x.fillStyle = LIME; x.font = 'bold 150px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE', 525, 330); }
     x.restore();
+    // name (wraps to 3 lines), title, divider
     x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
     const lines = ['']; String(m.name || '').toUpperCase().split(' ').forEach(function (w) { const t = (lines[lines.length - 1] + ' ' + w).trim(); if (x.measureText(t).width > 340 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; });
     lines.slice(0, 3).forEach(function (l, i) { x.fillText(l, 40, 85 + i * 44); });
     x.fillStyle = PALE; x.font = 'bold 24px sans-serif'; x.fillText(String((titleOf(m) || 'MEMBER')).toUpperCase(), 40, 215);
     x.fillStyle = '#145a22'; x.fillRect(40, 238, 500, 3);
+    // details (no icons): smaller values so everything fits
     const addr = m.address || m.house || '-', age = ageOf(m.dob);
     const stat = (age !== '' ? age + ' yrs \u00b7 ' : '') + (m.status === 'revoked' ? 'REVOKED' : 'ACTIVE');
     const rows = [['MEMBER ID', m.id || ''], ['VILLAGE / TOWN', m.village || ''], ['ADDRESS', addr], ['PHONE', m.phone || '-'], ['OCCUPATION', m.occupation || '-'], ['AGE / STATUS', stat]];
@@ -238,15 +279,18 @@
       ls.forEach(function (l, i) { x.fillText(l, 215, ry + i * 26); });
       ry += 44 + (ls.length > 1 ? 24 : 0);
     });
+    // photo
     x.save(); x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.closePath(); x.clip();
     x.fillStyle = '#16284a'; x.fillRect(405, 40, 150, 150);
     if (photo) x.drawImage(photo, 405, 40, 150, 150); else { x.fillStyle = LIME; x.font = 'bold 70px sans-serif'; x.textAlign = 'center'; x.fillText((m.name || '?').charAt(0).toUpperCase(), 480, 140); x.textAlign = 'left'; }
     x.restore(); x.strokeStyle = LIME; x.lineWidth = 4; x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.stroke();
+    // right panel: logo and title
     x.textAlign = 'center';
     if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 75, logo.width * k, logo.height * k); }
     else { x.fillStyle = LIME; x.font = 'bold 56px sans-serif'; x.fillText('UZAIRUE', 840, 170); }
     x.fillStyle = LIME; x.font = 'bold 46px sans-serif'; x.fillText('UZAIRUE', 840, 335);
     x.fillStyle = PALE; x.font = 'bold 32px sans-serif'; x.fillText('COMMUNITY CARD', 840, 380);
+    // QR code (holds the member ID)
     if (window.qrcode && m.id) {
       const q = qrcode(0, 'M'); q.addData('UZAIRUE:' + m.id); q.make();
       const n = q.getModuleCount(), box = 190, pad = 14, cs = (box - pad * 2) / n, qx = 745, qy = 395;
@@ -256,7 +300,11 @@
   };
 
   // ------------------------------------------------------------
-  // SECTION: QR scanner
+  // SECTION: QR scanner for admins
+  // What it does: opens the camera, reads the QR on a member's ID card,
+  // puts the member ID into the admin member form and loads that member
+  // for editing. Uses the phone's built-in reader when it has one,
+  // otherwise the jsQR library.
   // ------------------------------------------------------------
   async function fxScan() {
     const ov = document.createElement('div'); ov.className = 'scan';
@@ -287,6 +335,12 @@
 
   // ------------------------------------------------------------
   // PART 2: Occupation, date of birth and age
+  // What it does: adds Occupation and Date of birth to the sign-up form,
+  // the admin register/edit form and the member's own profile. Age is
+  // worked out from the date each time, so it never goes out of date.
+  // Age and occupation also show on the profile, the admin member cards
+  // and the ID card. "Address" is read from the saved address (or the
+  // older house-number value, so old records still show).
   // ------------------------------------------------------------
   function ageOf(dob) {
     if (!dob) return '';
@@ -301,6 +355,7 @@
   }
   const EXTRA_FIELDS = '<label>Occupation</label><input id="fx_occ" placeholder="e.g. Teacher"><label>Date of birth</label><input id="fx_dob" type="date">';
 
+  // --- Draw the extra fields on the sign-up page and the About card on the profile page (runs after every redraw)
   const _render = window.render;
   window.render = function () { _render(); fxDecorate(); };
   function fxDecorate() {
@@ -322,6 +377,7 @@
     try { const o = v('fx_pocc'), d = v('fx_pdob'); await updateDoc(doc(db, 'members', S.me._id), { occupation: o, dob: d }); S.me.occupation = o; S.me.dob = d; say('Saved.'); } catch (e) { say(e.message); }
   }
 
+  // --- Save the new sign-up fields right after the account is created
   const _signup = window.doSignup;
   window.doSignup = async function () {
     const occ = v('fx_occ'), dob = v('fx_dob');
@@ -331,6 +387,7 @@
     }
   };
 
+  // --- Admin form: fill the new fields when an ID is typed, and save them with the member
   const _look = window.lookupId; let fxWas = false;
   window.lookupId = function () {
     _look();
@@ -350,6 +407,7 @@
     } catch (e) {}
   };
 
+  // --- Admin member cards: add "age · occupation" under each member's ID line
   const _mc = window.memCards;
   window.memCards = function () {
     let h = _mc();
@@ -360,12 +418,37 @@
     return h;
   };
 
-  // ------------------------------------------------------------
+
+    // ------------------------------------------------------------
   // PART 3: Hamburger menu
+  // What it does: replaces the row of top buttons with a menu button.
+  // The existing nav() still builds all the buttons. This part moves
+  // "Sign up / Log in" out so it stays visible in the top bar, and
+  // turns the other buttons into a dropdown opened by the menu button.
+  // The page you are on stays highlighted inside the menu.
+  // Closes when you tap an item, tap outside the menu, or press Esc.
   // ------------------------------------------------------------
+
+  // --- Styles for the menu button, the dropdown and the visible login button
   const menuStyle = document.createElement('style');
   menuStyle.textContent =
-    '#nav{display:none;position:absolute;top:100%;right:10px;min-width:220px;max-width:calc(100% - 20px);flex-direction:column;gap:6px;margin:0;padding:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.35);z-index:6}' +
+    '#nav{' +
+      'display:none;' +
+      'position:absolute;' +
+      'top:100%;' +
+      'right:10px;' +
+      'min-width:220px;' +
+      'max-width:calc(100% - 20px);' +
+      'flex-direction:column;' +
+      'gap:6px;' +
+      'margin:0;' +
+      'padding:10px;' +
+      'background:var(--card);' +
+      'border:1px solid var(--line);' +
+      'border-radius:14px;' +
+      'box-shadow:0 12px 30px rgba(0,0,0,.35);' +
+      'z-index:6;' +
+    '}' +
     '#nav.fxOpen{display:flex}' +
     '#nav button{width:100%;text-align:left}' +
     '#fxAuth{display:flex;gap:6px;margin-left:auto;order:1}' +
@@ -373,974 +456,2589 @@
     '#fxMenuBtn{order:3;font-size:18px;line-height:1;padding:8px 12px}';
   document.head.appendChild(menuStyle);
 
+  // --- Creates the menu button and the box for the login button (once)
   function fxMenuParts() {
-    const header = document.querySelector('header'); if (!header) return null;
-    let authBox = document.getElementById('fxAuth'), menuBtn = document.getElementById('fxMenuBtn');
-    if (!authBox) { authBox = document.createElement('div'); authBox.id = 'fxAuth'; header.appendChild(authBox); }
-    if (!menuBtn) {
-      menuBtn = document.createElement('button'); menuBtn.id = 'fxMenuBtn'; menuBtn.type = 'button';
-      menuBtn.setAttribute('aria-label', 'Menu'); menuBtn.setAttribute('aria-expanded', 'false');
-      menuBtn.textContent = '\u2630'; menuBtn.onclick = fxToggleMenu; header.appendChild(menuBtn);
+    const header = document.querySelector('header');
+
+    if (!header) {
+      return null;
     }
+
+    let authBox = document.getElementById('fxAuth');
+    let menuBtn = document.getElementById('fxMenuBtn');
+
+    if (!authBox) {
+      authBox = document.createElement('div');
+      authBox.id = 'fxAuth';
+      header.appendChild(authBox);
+    }
+
+    if (!menuBtn) {
+      menuBtn = document.createElement('button');
+      menuBtn.id = 'fxMenuBtn';
+      menuBtn.type = 'button';
+      menuBtn.setAttribute('aria-label', 'Menu');
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.textContent = '\u2630';
+      menuBtn.onclick = fxToggleMenu;
+      header.appendChild(menuBtn);
+    }
+
     return { authBox: authBox, menuBtn: menuBtn };
   }
+
+  // --- Opens or closes the dropdown and switches the icon
   function fxSetMenu(open) {
-    const nav = document.getElementById('nav'), btn = document.getElementById('fxMenuBtn');
-    if (!nav || !btn) return;
+    const nav = document.getElementById('nav');
+    const btn = document.getElementById('fxMenuBtn');
+
+    if (!nav || !btn) {
+      return;
+    }
+
     nav.classList.toggle('fxOpen', open);
     btn.textContent = open ? '\u2715' : '\u2630';
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
-  function fxToggleMenu() { const nav = document.getElementById('nav'); const isOpen = nav && nav.classList.contains('fxOpen'); fxSetMenu(!isOpen); }
-  function fxCloseMenu() { fxSetMenu(false); }
+
+  function fxToggleMenu() {
+    const nav = document.getElementById('nav');
+    const isOpen = nav && nav.classList.contains('fxOpen');
+
+    fxSetMenu(!isOpen);
+  }
+
+  function fxCloseMenu() {
+    fxSetMenu(false);
+  }
+
+  // --- After nav() builds the buttons, move the login button out of the menu
   function fxMenuSync() {
-    const parts = fxMenuParts(), nav = document.getElementById('nav');
-    if (!parts || !nav) return;
+    const parts = fxMenuParts();
+    const nav = document.getElementById('nav');
+
+    if (!parts || !nav) {
+      return;
+    }
+
     parts.authBox.innerHTML = '';
+
     Array.prototype.slice.call(nav.children).forEach(function (btn) {
       const click = btn.getAttribute('onclick') || '';
-      if (click.indexOf("go('login')") >= 0) parts.authBox.appendChild(btn);
+
+      if (click.indexOf("go('login')") >= 0) {
+        parts.authBox.appendChild(btn);
+      }
     });
+
     fxCloseMenu();
   }
+
+  // --- Run fxMenuSync every time nav() redraws the top buttons
   const _nav = window.nav;
-  window.nav = function () { _nav(); fxMenuSync(); };
+
+  window.nav = function () {
+    _nav();
+    fxMenuSync();
+  };
+
+  // --- Close the menu when tapping outside it, or pressing Esc
   document.addEventListener('click', function (e) {
-    const nav = document.getElementById('nav'), btn = document.getElementById('fxMenuBtn');
-    if (!nav || !nav.classList.contains('fxOpen')) return;
-    if (btn && btn.contains(e.target)) return;
-    if (nav.contains(e.target)) { setTimeout(fxCloseMenu, 0); return; }
+    const nav = document.getElementById('nav');
+    const btn = document.getElementById('fxMenuBtn');
+
+    if (!nav || !nav.classList.contains('fxOpen')) {
+      return;
+    }
+
+    if (btn && btn.contains(e.target)) {
+      return;
+    }
+
+    if (nav.contains(e.target)) {
+      setTimeout(fxCloseMenu, 0);
+      return;
+    }
+
     fxCloseMenu();
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fxCloseMenu(); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      fxCloseMenu();
+    }
+  });
+
+  // --- Set the menu up for the page that is already on screen
   fxMenuSync();
 
+
+
   // ------------------------------------------------------------
-  // DUES
+  // DUES (paste above the "SECTION: Hook-up and start" part)
+  // What it does: adds community dues, paid monthly or yearly.
+  //
+  // Members get a "Dues" page (new item in the menu) that shows:
+  //   - their plan (monthly or yearly) and the amount
+  //   - their status: "Paid up to Mar 2027" or "Owing 3 months"
+  //   - the community bank account with a Copy button
+  //   - an "I've paid" form (months or years, amount, reference,
+  //     optional receipt photo). The payment waits as "Pending"
+  //     until an admin confirms it.
+  //   - their payment history
+  //
+  // Admins get a "Dues" card on the Admin page with:
+  //   - the monthly amount, yearly amount and the month dues start
+  //   - totals (paid up, owing, pending, money confirmed)
+  //   - pending payments to confirm or reject
+  //   - a form to record a payment for any member by ID
+  //   - the list of members with their status, a filter, a plan
+  //     switch and a "Remind on WhatsApp" button for those who owe
+  //
+  // Uses: the Firebase "dues" collection (payments) and the
+  // settings/dues document (amounts). Needs the new Firebase rules.
   // ------------------------------------------------------------
+
+  // --- Shared state for dues
   S.duesCfg = S.duesCfg || {};
   S.fxMine = S.fxMine || [];
   S.fxAll = S.fxAll || [];
   S.fxF = S.fxF || { q: '', v: '', s: '' };
 
+  // --- Small helpers: money, months, plan and WhatsApp link
   const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  function naira(n) { return '\u20a6' + Number(n || 0).toLocaleString(); }
-  function fxMonthIndex(ym) { const p = String(ym || '').split('-').map(Number); if (p.length < 2 || !p[0] || !p[1]) return null; return p[0] * 12 + (p[1] - 1); }
-  function fxNowIndex() { const d = new Date(); return d.getFullYear() * 12 + d.getMonth(); }
-  function fxMonthLabel(i) { return MONTH_NAMES[i % 12] + ' ' + Math.floor(i / 12); }
-  function fxToday() { return new Date().toISOString().slice(0, 10); }
-  function fxPlanOf(m) { return m && m.duesPlan === 'yearly' ? 'yearly' : 'monthly'; }
-  function fxUnitRate(plan) { const cfg = S.duesCfg || {}; return Number(plan === 'yearly' ? cfg.yearly : cfg.monthly) || 0; }
+
+  function naira(n) {
+    return '\u20a6' + Number(n || 0).toLocaleString();
+  }
+
+  // "2026-11" becomes a month number so months can be counted
+  function fxMonthIndex(ym) {
+    const p = String(ym || '').split('-').map(Number);
+
+    if (p.length < 2 || !p[0] || !p[1]) {
+      return null;
+    }
+
+    return p[0] * 12 + (p[1] - 1);
+  }
+
+  function fxNowIndex() {
+    const d = new Date();
+
+    return d.getFullYear() * 12 + d.getMonth();
+  }
+
+  function fxMonthLabel(i) {
+    return MONTH_NAMES[i % 12] + ' ' + Math.floor(i / 12);
+  }
+
+  function fxToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function fxPlanOf(m) {
+    return m && m.duesPlan === 'yearly' ? 'yearly' : 'monthly';
+  }
+
+  function fxUnitRate(plan) {
+    const cfg = S.duesCfg || {};
+
+    return Number(plan === 'yearly' ? cfg.yearly : cfg.monthly) || 0;
+  }
+
+  // Phone number to a WhatsApp link (Nigerian 0803... becomes 234803...)
   function fxWaLink(m, st) {
     let digits = String(m.phone || '').replace(/\D/g, '');
-    if (digits.length === 11 && digits.charAt(0) === '0') digits = '234' + digits.slice(1);
-    if (!digits) return '';
-    const text = 'Hello ' + m.name + ', this is a reminder from UZAIRUE. Your dues are owing: ' + st.owing + ' month(s), ' + naira(st.owed) + '. Thank you.';
+
+    if (digits.length === 11 && digits.charAt(0) === '0') {
+      digits = '234' + digits.slice(1);
+    }
+
+    if (!digits) {
+      return '';
+    }
+
+    const text =
+      'Hello ' + m.name + ', this is a reminder from UZAIRUE. ' +
+      'Your dues are owing: ' + st.owing + ' month(s), ' + naira(st.owed) + '. Thank you.';
+
     return 'https://wa.me/' + digits + '?text=' + encodeURIComponent(text);
   }
+
+  // --- Works out where a member stands, from their confirmed payments
   function fxDuesStatus(m, payments) {
-    const cfg = S.duesCfg || {}, start = fxMonthIndex(cfg.startMonth), plan = fxPlanOf(m);
+    const cfg = S.duesCfg || {};
+    const start = fxMonthIndex(cfg.startMonth);
+    const plan = fxPlanOf(m);
     const hasRates = Number(cfg.monthly) > 0 || Number(cfg.yearly) > 0;
-    if (start === null || !hasRates) return { active: false, plan: plan };
+
+    if (start === null || !hasRates) {
+      return { active: false, plan: plan };
+    }
+
+    // Dues count from the start month, or the month the member joined if later
     let from = start;
+
     if (m.createdAt && typeof m.createdAt.toDate === 'function') {
-      const joined = m.createdAt.toDate(), joinIndex = joined.getFullYear() * 12 + joined.getMonth();
+      const joined = m.createdAt.toDate();
+      const joinIndex = joined.getFullYear() * 12 + joined.getMonth();
+
       from = Math.max(start, joinIndex);
     }
+
     const perMonth = plan === 'yearly' ? fxUnitRate('yearly') / 12 : fxUnitRate('monthly');
     const due = Math.max(0, fxNowIndex() - from + 1);
-    let paid = 0, pending = 0;
+    let paid = 0;
+    let pending = 0;
+
     payments.forEach(function (p) {
-      if (p.status === 'confirmed') paid += Number(p.months) || 0;
-      else if (p.status === 'pending') pending += 1;
+      if (p.status === 'confirmed') {
+        paid += Number(p.months) || 0;
+      } else if (p.status === 'pending') {
+        pending += 1;
+      }
     });
+
     const owing = Math.max(0, due - paid);
-    return { active: true, plan: plan, perMonth: perMonth, owing: owing, owed: Math.round(owing * perMonth), paidUpTo: from + paid - 1, paid: paid, pending: pending };
+
+    return {
+      active: true,
+      plan: plan,
+      perMonth: perMonth,
+      owing: owing,
+      owed: Math.round(owing * perMonth),
+      paidUpTo: from + paid - 1,
+      paid: paid,
+      pending: pending
+    };
   }
+
   function fxStatusText(st) {
-    if (!st.active) return 'Dues have not started yet';
-    if (st.owing > 0) return 'Owing ' + st.owing + ' month' + (st.owing === 1 ? '' : 's') + ' \u00b7 ' + naira(st.owed);
+    if (!st.active) {
+      return 'Dues have not started yet';
+    }
+
+    if (st.owing > 0) {
+      return 'Owing ' + st.owing + ' month' + (st.owing === 1 ? '' : 's') + ' \u00b7 ' + naira(st.owed);
+    }
+
     return 'Paid up to ' + fxMonthLabel(st.paidUpTo);
   }
+
   function fxStatusHtml(st) {
     const owing = st.active && st.owing > 0;
     const style = owing ? ' style="color:var(--bad)"' : '';
+
     return '<div class="big"' + style + '>' + esc(fxStatusText(st)) + '</div>';
   }
 
+  // --- Loading: amounts, my payments (members) and all payments (admins)
   let fxFirestorePromise = null;
+
+  // Firebase's "where" is not shared by firebase.js, so load it here (same copy of Firebase)
   function fxFirestore() {
-    if (!fxFirestorePromise) fxFirestorePromise = import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    if (!fxFirestorePromise) {
+      fxFirestorePromise = import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    }
+
     return fxFirestorePromise;
   }
+
   async function fxLoadCfg() {
-    if (!cfgOk) return;
-    try { const d = await getDoc(doc(db, 'settings', 'dues')); S.duesCfg = d.exists() ? d.data() : {}; }
-    catch (e) { S.duesCfg = {}; }
+    if (!cfgOk) {
+      return;
+    }
+
+    try {
+      const d = await getDoc(doc(db, 'settings', 'dues'));
+
+      S.duesCfg = d.exists() ? d.data() : {};
+    } catch (e) {
+      S.duesCfg = {};
+    }
   }
+
   async function fxLoadMine() {
     S.fxMine = [];
-    if (!cfgOk || !auth || !auth.currentUser || !auth.currentUser.emailVerified) return;
+
+    if (!cfgOk || !auth || !auth.currentUser || !auth.currentUser.emailVerified) {
+      return;
+    }
+
     try {
       const fs = await fxFirestore();
-      const q = fs.query(fs.collection(db, 'dues'), fs.where('uid', '==', auth.currentUser.uid));
+      const q = fs.query(
+        fs.collection(db, 'dues'),
+        fs.where('uid', '==', auth.currentUser.uid)
+      );
       const snap = await fs.getDocs(q);
-      S.fxMine = snap.docs.map(function (d) { return Object.assign({ _id: d.id }, d.data()); });
-    } catch (e) { S.fxMine = []; }
-  }
-  const _loadPubDues = window.loadPub;
-  window.loadPub = async function () { await _loadPubDues(); await fxLoadCfg(); await fxLoadMine(); };
-  const _loadAdminDues = window.loadAdmin;
-  window.loadAdmin = async function () { await _loadAdminDues(); S.fxAll = (await list('dues', 'at')).reverse(); };
 
-  const _navDues = window.nav;
-  window.nav = function () { _navDues(); fxDuesNavItem(); };
-  function fxDuesNavItem() {
-    const nav = document.getElementById('nav');
-    if (!nav || !S.user || !S.user.emailVerified) return;
-    const btn = document.createElement('button');
-    btn.textContent = 'Dues'; btn.setAttribute('onclick', "go('dues')");
-    if (S.view === 'dues') btn.classList.add('on');
-    const logout = Array.prototype.slice.call(nav.children).filter(function (b) { return (b.getAttribute('onclick') || '').indexOf('out()') >= 0; })[0];
-    if (logout) nav.insertBefore(btn, logout); else nav.appendChild(btn);
-  }
-
-  const _renderDues = window.render;
-  window.render = function () {
-    if (S.ready && S.view === 'dues') {
-      if (!S.user) S.view = 'home';
-      else if (!S.user.emailVerified) S.view = 'verify';
+      S.fxMine = snap.docs.map(function (d) {
+        return Object.assign({ _id: d.id }, d.data());
+      });
+    } catch (e) {
+      S.fxMine = [];
     }
-    _renderDues();
-    if (S.view === 'dues') fxDrawDues();
+  }
+
+  const _loadPubDues = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubDues();
+    await fxLoadCfg();
+    await fxLoadMine();
   };
 
+  const _loadAdminDues = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminDues();
+    S.fxAll = (await list('dues', 'at')).reverse();
+  };
+
+  // --- Menu: add a "Dues" item for logged-in, verified members
+  const _navDues = window.nav;
+
+  window.nav = function () {
+    _navDues();
+    fxDuesNavItem();
+  };
+
+  function fxDuesNavItem() {
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+
+    btn.textContent = 'Dues';
+    btn.setAttribute('onclick', "go('dues')");
+
+    if (S.view === 'dues') {
+      btn.classList.add('on');
+    }
+
+    const logout = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (logout) {
+      nav.insertBefore(btn, logout);
+    } else {
+      nav.appendChild(btn);
+    }
+  }
+
+  // --- Page: after the normal redraw, draw the Dues page when it is selected
+  const _renderDues = window.render;
+
+  window.render = function () {
+    if (S.ready && S.view === 'dues') {
+      if (!S.user) {
+        S.view = 'home';
+      } else if (!S.user.emailVerified) {
+        S.view = 'verify';
+      }
+    }
+
+    _renderDues();
+
+    if (S.view === 'dues') {
+      fxDrawDues();
+    }
+  };
+
+  // --- Member page: status, plan, how to pay, "I've paid" form and history
   function fxDrawDues() {
-    const app = $('app'), m = S.me;
-    if (!app) return;
-    if (!m) { app.innerHTML = '<div class="card">Your profile is not available yet.</div>'; return; }
-    const cfg = S.duesCfg || {}, st = fxDuesStatus(m, S.fxMine || []), plan = fxPlanOf(m);
-    const unit = plan === 'yearly' ? 'year' : 'month', rate = fxUnitRate(plan);
+    const app = $('app');
+    const m = S.me;
+
+    if (!app) {
+      return;
+    }
+
+    if (!m) {
+      app.innerHTML = '<div class="card">Your profile is not available yet.</div>';
+      return;
+    }
+
+    const cfg = S.duesCfg || {};
+    const st = fxDuesStatus(m, S.fxMine || []);
+    const plan = fxPlanOf(m);
+    const unit = plan === 'yearly' ? 'year' : 'month';
+    const rate = fxUnitRate(plan);
     const parts = [];
-    if (S.msg) parts.push('<div class="msg">' + esc(S.msg) + '</div>');
-    parts.push('<h2>Dues</h2><div class="card"><h3>Your dues</h3>' + fxStatusHtml(st));
-    if (st.active && st.pending > 0) parts.push('<div class="mute">' + st.pending + ' payment(s) waiting for an admin to confirm</div>');
+
+    if (S.msg) {
+      parts.push('<div class="msg">' + esc(S.msg) + '</div>');
+    }
+
+    parts.push('<h2>Dues</h2>');
+    parts.push('<div class="card">');
+    parts.push('<h3>Your dues</h3>');
+    parts.push(fxStatusHtml(st));
+
+    if (st.active && st.pending > 0) {
+      parts.push('<div class="mute">' + st.pending + ' payment(s) waiting for an admin to confirm</div>');
+    }
+
     parts.push('<div class="mute" style="margin-top:8px">Plan: ' + (plan === 'yearly' ? 'Yearly' : 'Monthly') + ' \u00b7 ' + naira(rate) + ' per ' + unit + '</div>');
-    parts.push('<div class="row"><button class="' + (plan === 'monthly' ? 'on' : '') + '" onclick="fxSetPlan(\'monthly\')">Monthly</button><button class="' + (plan === 'yearly' ? 'on' : '') + '" onclick="fxSetPlan(\'yearly\')">Yearly</button></div></div>');
+    parts.push('<div class="row">');
+    parts.push('<button class="' + (plan === 'monthly' ? 'on' : '') + '" onclick="fxSetPlan(\'monthly\')">Monthly</button>');
+    parts.push('<button class="' + (plan === 'yearly' ? 'on' : '') + '" onclick="fxSetPlan(\'yearly\')">Yearly</button>');
+    parts.push('</div>');
+    parts.push('</div>');
+
     if (st.active) {
-      parts.push('<h2>Pay your dues</h2><div class="card"><p class="mute">Send the money to this account, then tell us below.</p>' + acctHtml(acctOf(null)) + '</div>');
-      parts.push('<div class="card" style="margin-top:14px"><h3>I\u2019ve paid</h3>');
-      parts.push('<label>How many ' + unit + 's are you paying for?</label><input id="fx_dn" type="number" min="1" value="1" oninput="fxDuesCalc()">');
-      parts.push('<label>Amount paid (\u20a6)</label><input id="fx_da" type="number" value="' + rate + '">');
-      parts.push('<label>Reference or narration</label><input id="fx_dr">');
-      parts.push('<label>Receipt photo (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'receipt\',900)"><img id="pv_receipt" class="pv" style="display:none">');
-      parts.push('<button class="p" onclick="fxPayDues()">I\u2019ve paid</button></div>');
+      parts.push('<h2>Pay your dues</h2>');
+      parts.push('<div class="card">');
+      parts.push('<p class="mute">Send the money to this account, then tell us below.</p>');
+      parts.push(acctHtml(acctOf(null)));
+      parts.push('</div>');
+      parts.push('<div class="card" style="margin-top:14px">');
+      parts.push('<h3>I\u2019ve paid</h3>');
+      parts.push('<label>How many ' + unit + 's are you paying for?</label>');
+      parts.push('<input id="fx_dn" type="number" min="1" value="1" oninput="fxDuesCalc()">');
+      parts.push('<label>Amount paid (\u20a6)</label>');
+      parts.push('<input id="fx_da" type="number" value="' + rate + '">');
+      parts.push('<label>Reference or narration</label>');
+      parts.push('<input id="fx_dr">');
+      parts.push('<label>Receipt photo (optional)</label>');
+      parts.push('<input type="file" accept="image/*" onchange="fxPick(this,\'receipt\',900)">');
+      parts.push('<img id="pv_receipt" class="pv" style="display:none">');
+      parts.push('<button class="p" onclick="fxPayDues()">I\u2019ve paid</button>');
+      parts.push('</div>');
     } else {
       parts.push('<div class="card mute" style="margin-top:14px">Dues have not been set up yet. Please check again soon.</div>');
     }
-    parts.push('<h2>Payment history</h2><div class="grid">' + fxHistoryHtml(S.fxMine || []) + '</div>');
+
+    parts.push('<h2>Payment history</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxHistoryHtml(S.fxMine || []));
+    parts.push('</div>');
+
     app.innerHTML = parts.join('');
   }
 
+  // Cards for a list of payments (used on the member page)
   function fxHistoryHtml(payments) {
-    if (!payments.length) return '<div class="card mute">No payments yet.</div>';
-    return payments.slice().sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); }).map(function (p) {
-      const unit = p.plan === 'yearly' ? 'year' : 'month';
-      const label = p.status === 'confirmed' ? 'Confirmed' : (p.status === 'rejected' ? 'Rejected' : 'Pending');
-      return '<div class="card"><div class="big">' + naira(p.amount) + '</div><div>' + esc(p.count) + ' ' + unit + (Number(p.count) === 1 ? '' : 's') + '</div><div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div><span class="tag ' + (p.status === 'confirmed' ? 'a' : '') + '">' + label + '</span></div>';
-    }).join('');
+    if (!payments.length) {
+      return '<div class="card mute">No payments yet.</div>';
+    }
+
+    return payments
+      .slice()
+      .sort(function (a, b) {
+        return String(b.date).localeCompare(String(a.date));
+      })
+      .map(function (p) {
+        const unit = p.plan === 'yearly' ? 'year' : 'month';
+        const label = p.status === 'confirmed' ? 'Confirmed' : (p.status === 'rejected' ? 'Rejected' : 'Pending');
+
+        return '<div class="card">' +
+          '<div class="big">' + naira(p.amount) + '</div>' +
+          '<div>' + esc(p.count) + ' ' + unit + (Number(p.count) === 1 ? '' : 's') + '</div>' +
+          '<div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div>' +
+          '<span class="tag ' + (p.status === 'confirmed' ? 'a' : '') + '">' + label + '</span>' +
+          '</div>';
+      })
+      .join('');
   }
 
+  // --- Member actions: choose a plan, update the amount, report a payment
   async function fxSetPlan(plan) {
-    if (!S.me) return;
-    try { await updateDoc(doc(db, 'members', S.me._id), { duesPlan: plan }); S.me.duesPlan = plan; render(); }
-    catch (e) { say(e.message); }
+    if (!S.me) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', S.me._id), { duesPlan: plan });
+      S.me.duesPlan = plan;
+      render();
+    } catch (e) {
+      say(e.message);
+    }
   }
+
+  // Fills the amount box when the number of months or years changes
   function fxDuesCalc() {
-    const n = parseInt(v('fx_dn'), 10) || 0, rate = fxUnitRate(fxPlanOf(S.me)), amount = $('fx_da');
-    if (amount) amount.value = n > 0 ? n * rate : '';
+    const n = parseInt(v('fx_dn'), 10) || 0;
+    const rate = fxUnitRate(fxPlanOf(S.me));
+    const amount = $('fx_da');
+
+    if (amount) {
+      amount.value = n > 0 ? n * rate : '';
+    }
   }
+
   async function fxPayDues() {
-    const m = S.me, plan = fxPlanOf(m), count = parseInt(v('fx_dn'), 10), amount = Number(v('fx_da'));
-    if (!(count >= 1) || !(amount > 0)) return say('Enter how many ' + (plan === 'yearly' ? 'years' : 'months') + ' and the amount you paid.');
+    const m = S.me;
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_dn'), 10);
+    const amount = Number(v('fx_da'));
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter how many ' + (plan === 'yearly' ? 'years' : 'months') + ' and the amount you paid.');
+    }
+
     try {
       await addDoc(collection(db, 'dues'), {
-        uid: auth.currentUser.uid, mid: m._id, memberId: m.id, name: m.name, village: m.village || '',
-        plan: plan, count: count, months: count * (plan === 'yearly' ? 12 : 1), amount: amount,
-        ref: v('fx_dr'), receipt: IMG.receipt || '', status: 'pending', by: 'member', date: fxToday(), at: serverTimestamp()
+        uid: auth.currentUser.uid,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_dr'),
+        receipt: IMG.receipt || '',
+        status: 'pending',
+        by: 'member',
+        date: fxToday(),
+        at: serverTimestamp()
       });
-      IMG.receipt = ''; await reload(); say('Payment reported. An admin will confirm it soon.');
-    } catch (e) { say(e.message); }
+
+      IMG.receipt = '';
+      await reload();
+      say('Payment reported. An admin will confirm it soon.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
-  const DUES_KNOWN_TABS = ['members', 'villages', 'council', 'donations', 'news', 'projects', 'logo', 'donate', 'settings', 'fxdues'];
+  // --- Admin: add a "Dues" card to the Admin page and open the Dues section
+  const DUES_KNOWN_TABS = [
+    'members', 'villages', 'council', 'donations', 'news',
+    'projects', 'logo', 'donate', 'settings', 'fxdues'
+  ];
   const _adminDues = window.admin;
+
   window.admin = function () {
-    if (!isAdmin()) return _adminDues();
-    if (S.tab === 'fxdues') return fxAdminDues();
+    if (!isAdmin()) {
+      return _adminDues();
+    }
+
+    if (S.tab === 'fxdues') {
+      return fxAdminDues();
+    }
+
     let h = _adminDues();
+
+    // The Admin menu is shown for any tab that is not a section
     if (DUES_KNOWN_TABS.indexOf(S.tab) < 0) {
-      const tile = '<div class="card tile" onclick="S.tab=\'fxdues\';render();window.scrollTo(0,0)"><div class="ic">\uD83D\uDCB3</div><h3>Dues</h3><div class="mute">Amounts, payments and who owes</div></div>';
+      const tile =
+        '<div class="card tile" onclick="S.tab=\'fxdues\';render();window.scrollTo(0,0)">' +
+        '<div class="ic">\uD83D\uDCB3</div>' +
+        '<h3>Dues</h3>' +
+        '<div class="mute">Amounts, payments and who owes</div>' +
+        '</div>';
       const i = h.lastIndexOf('</div>');
+
       h = h.slice(0, i) + tile + h.slice(i);
     }
+
     return h;
   };
 
-  function fxPaymentsOf(m) { return S.fxAll.filter(function (p) { return p.mid === m._id; }); }
-  function fxPayingMembers() { return S.mem.filter(function (m) { return m.status !== 'revoked'; }); }
+  // Payments that belong to one member
+  function fxPaymentsOf(m) {
+    return S.fxAll.filter(function (p) {
+      return p.mid === m._id;
+    });
+  }
+
+  // Members that should pay dues (everyone except revoked members)
+  function fxPayingMembers() {
+    return S.mem.filter(function (m) {
+      return m.status !== 'revoked';
+    });
+  }
 
   function fxAdminDues() {
-    const cfg = S.duesCfg || {}, members = fxPayingMembers();
-    const pending = S.fxAll.filter(function (p) { return p.status === 'pending'; });
-    const confirmedTotal = S.fxAll.reduce(function (sum, p) { return p.status === 'confirmed' ? sum + (Number(p.amount) || 0) : sum; }, 0);
-    let paidUp = 0, owing = 0;
+    const cfg = S.duesCfg || {};
+    const members = fxPayingMembers();
+    const pending = S.fxAll.filter(function (p) {
+      return p.status === 'pending';
+    });
+    const confirmedTotal = S.fxAll.reduce(function (sum, p) {
+      return p.status === 'confirmed' ? sum + (Number(p.amount) || 0) : sum;
+    }, 0);
+    let paidUp = 0;
+    let owing = 0;
+
     members.forEach(function (m) {
       const st = fxDuesStatus(m, fxPaymentsOf(m));
-      if (st.active && st.owing === 0) paidUp += 1;
-      else if (st.active) owing += 1;
+
+      if (st.active && st.owing === 0) {
+        paidUp += 1;
+      } else if (st.active) {
+        owing += 1;
+      }
     });
+
     const parts = [];
-    parts.push('<div class="row"><button onclick="S.tab=\'dash\';render()">\u2190 Back to Admin</button></div><h2>Dues</h2><div class="grid">');
-    parts.push(fxStatCard('Paid up', paidUp)); parts.push(fxStatCard('Owing', owing)); parts.push(fxStatCard('Pending payments', pending.length)); parts.push(fxStatCard('Confirmed total', naira(confirmedTotal)));
-    parts.push('</div><div class="card" style="margin-top:14px"><h3>Dues settings</h3>');
-    parts.push('<label>Monthly amount (\u20a6)</label><input id="fxc_m" type="number" value="' + esc(cfg.monthly || '') + '">');
-    parts.push('<label>Yearly amount (\u20a6)</label><input id="fxc_y" type="number" value="' + esc(cfg.yearly || '') + '">');
-    parts.push('<label>Dues start from (month)</label><input id="fxc_s" type="month" value="' + esc(cfg.startMonth || '') + '">');
-    parts.push('<button class="p" onclick="fxSaveDuesCfg()">Save settings</button></div>');
-    parts.push('<div class="card" style="margin-top:14px"><h3>Record a payment</h3>');
-    parts.push('<label>Member ID</label><input id="fx_rid" placeholder="e.g. UCA-0002" autocapitalize="characters">');
-    parts.push('<label>Number of months (or years, for a yearly member)</label><input id="fx_rn" type="number" min="1" value="1">');
-    parts.push('<label>Amount received (\u20a6)</label><input id="fx_ra" type="number">');
-    parts.push('<label>Reference or note</label><input id="fx_rr">');
-    parts.push('<button class="p" onclick="fxAdminRecord()">Record payment</button></div>');
-    parts.push('<h2>Pending payments</h2><div class="grid">' + fxPendingHtml(pending) + '</div>');
-    parts.push('<h2>Members</h2><input placeholder="Search name or ID" value="' + esc(S.fxF.q) + '" oninput="S.fxF.q=this.value;fxRefreshList()">');
-    parts.push('<select onchange="S.fxF.v=this.value;fxRefreshList()"><option value="">All villages/towns</option>' + fxVillageOptions() + '</select>');
-    parts.push('<select onchange="S.fxF.s=this.value;fxRefreshList()"><option value="">All statuses</option><option value="owing"' + (S.fxF.s === 'owing' ? ' selected' : '') + '>Owing</option><option value="paid"' + (S.fxF.s === 'paid' ? ' selected' : '') + '>Paid up</option></select>');
+
+    parts.push('<div class="row"><button onclick="S.tab=\'dash\';render()">\u2190 Back to Admin</button></div>');
+    parts.push('<h2>Dues</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxStatCard('Paid up', paidUp));
+    parts.push(fxStatCard('Owing', owing));
+    parts.push(fxStatCard('Pending payments', pending.length));
+    parts.push(fxStatCard('Confirmed total', naira(confirmedTotal)));
+    parts.push('</div>');
+
+    parts.push('<div class="card" style="margin-top:14px">');
+    parts.push('<h3>Dues settings</h3>');
+    parts.push('<label>Monthly amount (\u20a6)</label>');
+    parts.push('<input id="fxc_m" type="number" value="' + esc(cfg.monthly || '') + '">');
+    parts.push('<label>Yearly amount (\u20a6)</label>');
+    parts.push('<input id="fxc_y" type="number" value="' + esc(cfg.yearly || '') + '">');
+    parts.push('<label>Dues start from (month)</label>');
+    parts.push('<input id="fxc_s" type="month" value="' + esc(cfg.startMonth || '') + '">');
+    parts.push('<button class="p" onclick="fxSaveDuesCfg()">Save settings</button>');
+    parts.push('</div>');
+
+    parts.push('<div class="card" style="margin-top:14px">');
+    parts.push('<h3>Record a payment</h3>');
+    parts.push('<label>Member ID</label>');
+    parts.push('<input id="fx_rid" placeholder="e.g. UCA-0002" autocapitalize="characters">');
+    parts.push('<label>Number of months (or years, for a yearly member)</label>');
+    parts.push('<input id="fx_rn" type="number" min="1" value="1">');
+    parts.push('<label>Amount received (\u20a6)</label>');
+    parts.push('<input id="fx_ra" type="number">');
+    parts.push('<label>Reference or note</label>');
+    parts.push('<input id="fx_rr">');
+    parts.push('<button class="p" onclick="fxAdminRecord()">Record payment</button>');
+    parts.push('</div>');
+
+    parts.push('<h2>Pending payments</h2>');
+    parts.push('<div class="grid">');
+    parts.push(fxPendingHtml(pending));
+    parts.push('</div>');
+
+    parts.push('<h2>Members</h2>');
+    parts.push('<input placeholder="Search name or ID" value="' + esc(S.fxF.q) + '" oninput="S.fxF.q=this.value;fxRefreshList()">');
+    parts.push('<select onchange="S.fxF.v=this.value;fxRefreshList()">');
+    parts.push('<option value="">All villages/towns</option>');
+    parts.push(fxVillageOptions());
+    parts.push('</select>');
+    parts.push('<select onchange="S.fxF.s=this.value;fxRefreshList()">');
+    parts.push('<option value="">All statuses</option>');
+    parts.push('<option value="owing"' + (S.fxF.s === 'owing' ? ' selected' : '') + '>Owing</option>');
+    parts.push('<option value="paid"' + (S.fxF.s === 'paid' ? ' selected' : '') + '>Paid up</option>');
+    parts.push('</select>');
     parts.push('<div class="grid" id="fx_list">' + fxMemberListHtml() + '</div>');
+
     return parts.join('');
   }
-  function fxStatCard(label, value) { return '<div class="card"><div class="mute">' + label + '</div><div class="big">' + value + '</div></div>'; }
-  function fxVillageOptions() { return S.vil.map(function (x) { return '<option' + (S.fxF.v === x.name ? ' selected' : '') + '>' + esc(x.name) + '</option>'; }).join(''); }
-  function fxPendingHtml(pending) {
-    if (!pending.length) return '<div class="card mute">Nothing waiting for confirmation.</div>';
-    return pending.map(function (p) {
-      return '<div class="card"><h3>' + esc(p.name) + '</h3><div class="mute">' + esc(p.memberId) + ' \u00b7 ' + esc(p.village) + '</div><div class="big">' + naira(p.amount) + '</div><div>' + esc(p.count) + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's') + '</div><div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div>' + (p.receipt ? '<img class="thumb" src="' + esc(p.receipt) + '" alt="Receipt">' : '') + '<div class="row"><button class="p" onclick="fxReview(\'' + p._id + '\',\'confirmed\')">Confirm</button><button class="d" onclick="fxReview(\'' + p._id + '\',\'rejected\')">Reject</button></div></div>';
+
+  function fxStatCard(label, value) {
+    return '<div class="card"><div class="mute">' + label + '</div><div class="big">' + value + '</div></div>';
+  }
+
+  function fxVillageOptions() {
+    return S.vil.map(function (x) {
+      const selected = S.fxF.v === x.name ? ' selected' : '';
+
+      return '<option' + selected + '>' + esc(x.name) + '</option>';
     }).join('');
   }
+
+  // Pending payments with Confirm and Reject buttons
+  function fxPendingHtml(pending) {
+    if (!pending.length) {
+      return '<div class="card mute">Nothing waiting for confirmation.</div>';
+    }
+
+    return pending.map(function (p) {
+      return '<div class="card">' +
+        '<h3>' + esc(p.name) + '</h3>' +
+        '<div class="mute">' + esc(p.memberId) + ' \u00b7 ' + esc(p.village) + '</div>' +
+        '<div class="big">' + naira(p.amount) + '</div>' +
+        '<div>' + esc(p.count) + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's') + '</div>' +
+        '<div class="mute">' + esc(p.date) + (p.ref ? ' \u00b7 ' + esc(p.ref) : '') + '</div>' +
+        (p.receipt ? '<img class="thumb" src="' + esc(p.receipt) + '" alt="Receipt">' : '') +
+        '<div class="row">' +
+        '<button class="p" onclick="fxReview(\'' + p._id + '\',\'confirmed\')">Confirm</button>' +
+        '<button class="d" onclick="fxReview(\'' + p._id + '\',\'rejected\')">Reject</button>' +
+        '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  // Member cards with status, filtered by the search box and the two dropdowns
   function fxMemberListHtml() {
-    const f = S.fxF, q = String(f.q || '').toLowerCase(), cards = [];
+    const f = S.fxF;
+    const q = String(f.q || '').toLowerCase();
+    const cards = [];
+
     fxPayingMembers().forEach(function (m) {
-      const st = fxDuesStatus(m, fxPaymentsOf(m)), isOwing = st.active && st.owing > 0, isPaid = st.active && st.owing === 0;
-      if (f.v && m.village !== f.v) return;
-      if (q && (m.name + ' ' + m.id).toLowerCase().indexOf(q) < 0) return;
-      if (f.s === 'owing' && !isOwing) return;
-      if (f.s === 'paid' && !isPaid) return;
+      const st = fxDuesStatus(m, fxPaymentsOf(m));
+      const isOwing = st.active && st.owing > 0;
+      const isPaid = st.active && st.owing === 0;
+
+      if (f.v && m.village !== f.v) {
+        return;
+      }
+
+      if (q && (m.name + ' ' + m.id).toLowerCase().indexOf(q) < 0) {
+        return;
+      }
+
+      if (f.s === 'owing' && !isOwing) {
+        return;
+      }
+
+      if (f.s === 'paid' && !isPaid) {
+        return;
+      }
+
       const wa = isOwing ? fxWaLink(m, st) : '';
-      let card = '<div class="card"><h3>' + esc(m.name) + '</h3><div class="mute">' + esc(m.id) + ' \u00b7 ' + esc(m.village || '') + '</div>' + fxStatusHtml(st) + '<div class="mute">' + (st.plan === 'yearly' ? 'Yearly' : 'Monthly') + ' plan</div><div class="row"><button onclick="fxAdminPlan(\'' + m._id + '\')">Switch plan</button>';
-      if (wa) card += '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener">Remind on WhatsApp</a>';
-      card += '</div></div>'; cards.push(card);
+      let card = '<div class="card">';
+
+      card += '<h3>' + esc(m.name) + '</h3>';
+      card += '<div class="mute">' + esc(m.id) + ' \u00b7 ' + esc(m.village || '') + '</div>';
+      card += fxStatusHtml(st);
+      card += '<div class="mute">' + (st.plan === 'yearly' ? 'Yearly' : 'Monthly') + ' plan</div>';
+      card += '<div class="row">';
+      card += '<button onclick="fxAdminPlan(\'' + m._id + '\')">Switch plan</button>';
+
+      if (wa) {
+        card += '<a class="btn" href="' + esc(wa) + '" target="_blank" rel="noopener">Remind on WhatsApp</a>';
+      }
+
+      card += '</div></div>';
+      cards.push(card);
     });
+
     return cards.join('') || '<div class="card mute">No members found.</div>';
   }
-  function fxRefreshList() { const box = $('fx_list'); if (box) box.innerHTML = fxMemberListHtml(); }
+
+  function fxRefreshList() {
+    const box = $('fx_list');
+
+    if (box) {
+      box.innerHTML = fxMemberListHtml();
+    }
+  }
+
+  // --- Admin actions: save amounts, record a payment, confirm or reject, switch plan
   async function fxSaveDuesCfg() {
-    try { await setDoc(doc(db, 'settings', 'dues'), { monthly: Number(v('fxc_m')) || 0, yearly: Number(v('fxc_y')) || 0, startMonth: v('fxc_s') }, { merge: true }); await reload(); say('Dues settings saved.'); }
-    catch (e) { say(e.message); }
-  }
-  async function fxAdminRecord() {
-    const id = v('fx_rid').toUpperCase(), m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
-    if (!m) return say('No member with that ID.');
-    const plan = fxPlanOf(m), count = parseInt(v('fx_rn'), 10), amount = Number(v('fx_ra'));
-    if (!(count >= 1) || !(amount > 0)) return say('Enter the number of months or years and the amount.');
     try {
-      await addDoc(collection(db, 'dues'), { uid: m.uid || m._id, mid: m._id, memberId: m.id, name: m.name, village: m.village || '', plan: plan, count: count, months: count * (plan === 'yearly' ? 12 : 1), amount: amount, ref: v('fx_rr'), receipt: '', status: 'confirmed', by: 'admin', date: fxToday(), at: serverTimestamp() });
-      await reload(); say('Payment recorded for ' + m.id + '.');
-    } catch (e) { say(e.message); }
+      await setDoc(
+        doc(db, 'settings', 'dues'),
+        {
+          monthly: Number(v('fxc_m')) || 0,
+          yearly: Number(v('fxc_y')) || 0,
+          startMonth: v('fxc_s')
+        },
+        { merge: true }
+      );
+      await reload();
+      say('Dues settings saved.');
+    } catch (e) {
+      say(e.message);
+    }
   }
-  async function fxReview(id, status) { try { await updateDoc(doc(db, 'dues', id), { status: status }); await reload(); } catch (e) { say(e.message); } }
+
+  async function fxAdminRecord() {
+    const id = v('fx_rid').toUpperCase();
+    const m = S.mem.filter(function (x) {
+      return String(x.id).toUpperCase() === id;
+    })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_rn'), 10);
+    const amount = Number(v('fx_ra'));
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter the number of months or years and the amount.');
+    }
+
+    try {
+      await addDoc(collection(db, 'dues'), {
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_rr'),
+        receipt: '',
+        status: 'confirmed',
+        by: 'admin',
+        date: fxToday(),
+        at: serverTimestamp()
+      });
+      await reload();
+      say('Payment recorded for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  async function fxReview(id, status) {
+    try {
+      await updateDoc(doc(db, 'dues', id), { status: status });
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
   async function fxAdminPlan(memberDocId) {
-    const m = S.mem.filter(function (x) { return x._id === memberDocId; })[0]; if (!m) return;
-    try { await updateDoc(doc(db, 'members', memberDocId), { duesPlan: fxPlanOf(m) === 'yearly' ? 'monthly' : 'yearly' }); await reload(); } catch (e) { say(e.message); }
+    const m = S.mem.filter(function (x) {
+      return x._id === memberDocId;
+    })[0];
+
+    if (!m) {
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', memberDocId), {
+        duesPlan: fxPlanOf(m) === 'yearly' ? 'monthly' : 'yearly'
+      });
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
   }
 
-  Object.assign(window, { fxSetPlan: fxSetPlan, fxDuesCalc: fxDuesCalc, fxPayDues: fxPayDues, fxSaveDuesCfg: fxSaveDuesCfg, fxAdminRecord: fxAdminRecord, fxReview: fxReview, fxAdminPlan: fxAdminPlan, fxRefreshList: fxRefreshList });
-  [['fxSetPlan', 'Saving...'], ['fxPayDues', 'Sending...'], ['fxSaveDuesCfg', 'Saving...'], ['fxAdminRecord', 'Recording...'], ['fxReview', 'Updating...'], ['fxAdminPlan', 'Saving...']].forEach(function (pair) { window[pair[0]] = busyWrap(window[pair[0]], pair[1]); });
+  // --- Make the new functions available to the buttons and give them a "working" label
+  Object.assign(window, {
+    fxSetPlan: fxSetPlan,
+    fxDuesCalc: fxDuesCalc,
+    fxPayDues: fxPayDues,
+    fxSaveDuesCfg: fxSaveDuesCfg,
+    fxAdminRecord: fxAdminRecord,
+    fxReview: fxReview,
+    fxAdminPlan: fxAdminPlan,
+    fxRefreshList: fxRefreshList
+  });
+
+  [
+    ['fxSetPlan', 'Saving...'],
+    ['fxPayDues', 'Sending...'],
+    ['fxSaveDuesCfg', 'Saving...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxReview', 'Updating...'],
+    ['fxAdminPlan', 'Saving...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
 
   // ------------------------------------------------------------
-  // COUNCIL: KINGDOM LABEL
+  // COUNCIL: KINGDOM LABEL (paste above the "SECTION: Hook-up and start" part)
+  // What it does: shows "Kingdom of Uzairue" under each village
+  // heading on the Council page. The label is fixed text, not
+  // saved in the database. Only villages that have council
+  // members are shown, as before.
   // ------------------------------------------------------------
+
   const KINGDOM_LABEL = 'Kingdom of Uzairue';
+
+  // Keeps the original Council page and adds the label after each village heading
   const _councilPage = window.council;
+
   window.council = function () {
     let html = _councilPage();
+
     S.vil.forEach(function (vl) {
-      const heading = '<h2>' + esc(vl.name) + '</h2>', labelled = heading + '<div class="mute">' + KINGDOM_LABEL + '</div>';
+      const heading = '<h2>' + esc(vl.name) + '</h2>';
+      const labelled = heading + '<div class="mute">' + KINGDOM_LABEL + '</div>';
+
       html = html.split(heading).join(labelled);
     });
+
     return html;
   };
 
+  
+
   // ------------------------------------------------------------
   // CLAIM: ADMIN-REGISTERED MEMBERS LOG IN
+  // (paste above the "SECTION: Hook-up and start" part)
+  // What it does:
+  //   1. When an admin registers a member with an email, a claim is saved
+  //      under that email (in lower case).
+  //   2. The person signs up with the same email and verifies it by link.
+  //   3. Once verified, their new login record takes over the admin's
+  //      record: same ID, name, village, address, phone, photo, dues plan
+  //      and join date. The admin's record is marked as claimed and hidden
+  //      from the admin member list.
+  //   4. Admins see a "Member logins" panel on the Members page. It shows
+  //      "Enable login" for older records, "Waiting" or "Linked", and a
+  //      "Move dues to login" button for payments made before the claim.
+  // Needs the Firebase rules for: members (read and claim), and claims.
   // ------------------------------------------------------------
-  const CLAIM_FIELDS = ['name', 'id', 'village', 'address', 'house', 'phone', 'email', 'img', 'occupation', 'dob', 'duesPlan', 'createdAt'];
+
+  // --- Fields copied from the admin's record to the member's login record
+  const CLAIM_FIELDS = [
+    'name', 'id', 'village', 'address', 'house', 'phone', 'email',
+    'img', 'occupation', 'dob', 'duesPlan', 'createdAt'
+  ];
+
   S.fxClaims = S.fxClaims || {};
-  function fxEmailKey(e) { return String(e || '').trim().toLowerCase(); }
-  
+
+  // --- Lower-case email, used as the claim key
+  function fxEmailKey(e) {
+    return String(e || '').trim().toLowerCase();
+  }
+
+  // --- Admin: load claims, and hide records that a member has taken over
   const _loadAdminClaim = window.loadAdmin;
+
   window.loadAdmin = async function () {
     await _loadAdminClaim();
+
     S.fxClaims = {};
-    (await list('claims')).forEach(function (c) { S.fxClaims[c._id] = c; });
-    S.mem = S.mem.filter(function (m) { return !m.claimedBy; });
+    (await list('claims')).forEach(function (c) {
+      S.fxClaims[c._id] = c;
+    });
+
+    S.mem = S.mem.filter(function (m) {
+      return !m.claimedBy;
+    });
   };
+
+  // --- Save a claim for one admin-made member record
   async function fxMakeClaim(m) {
-    const key = fxEmailKey(m.email); if (!key) return;
-    if (m.email !== key) await updateDoc(doc(db, 'members', m._id), { email: key });
-    await setDoc(doc(db, 'claims', key), { memberDocId: m._id, memberId: m.id, name: m.name || '', claimed: false });
+    const key = fxEmailKey(m.email);
+
+    if (!key) {
+      return;
+    }
+
+    if (m.email !== key) {
+      await updateDoc(doc(db, 'members', m._id), { email: key });
+    }
+
+    await setDoc(doc(db, 'claims', key), {
+      memberDocId: m._id,
+      memberId: m.id,
+      name: m.name || '',
+      claimed: false
+    });
   }
+
+  // --- Admin: after a new member is registered with an email, save their claim
   const _submitClaim = window.submitMember;
+
   window.submitMember = async function () {
-    const editing = S.editId, email = fxEmailKey(v('ae'));
+    const editing = S.editId;
+    const email = fxEmailKey(v('ae'));
+
     await _submitClaim();
-    if (editing || !email || !/^Registered/.test(S.msg || '')) return;
-    if (S.fxClaims[email]) return;
-    const newest = S.mem.filter(function (m) { return fxEmailKey(m.email) === email && !m.claimedBy; }).sort(function (a, b) { return parseInt(String(b.id).slice(4), 10) - parseInt(String(a.id).slice(4), 10); })[0];
-    if (newest) { try { await fxMakeClaim(newest); await reload(); } catch (e) { say(e.message); } }
+
+    if (editing || !email || !/^Registered/.test(S.msg || '')) {
+      return;
+    }
+
+    if (S.fxClaims[email]) {
+      return;
+    }
+
+    const newest = S.mem
+      .filter(function (m) {
+        return fxEmailKey(m.email) === email && !m.claimedBy;
+      })
+      .sort(function (a, b) {
+        return parseInt(String(b.id).slice(4), 10) - parseInt(String(a.id).slice(4), 10);
+      })[0];
+
+    if (newest) {
+      try {
+        await fxMakeClaim(newest);
+        await reload();
+      } catch (e) {
+        say(e.message);
+      }
+    }
   };
+
+  // --- Admin: "Enable login" for an older record that has no claim yet
   async function fxEnableLogin(docId) {
-    const m = S.mem.filter(function (x) { return x._id === docId; })[0];
-    if (!m || !fxEmailKey(m.email)) return say('This member has no email, so they cannot log in.');
-    if (S.fxClaims[fxEmailKey(m.email)]) return say('Login is already enabled for this email.');
-    try { await fxMakeClaim(m); await reload(); say('Login enabled. Ask ' + m.name + ' to sign up with ' + fxEmailKey(m.email) + '.'); } catch (e) { say(e.message); }
-  }
-  async function fxMoveDues(docId) {
-    const m = S.mem.filter(function (x) { return x._id === docId; })[0]; if (!m || !m.legacyDocId) return;
-    const rows = (S.fxAll || []).filter(function (p) { return p.mid === m.legacyDocId; });
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
+    if (!m || !fxEmailKey(m.email)) {
+      return say('This member has no email, so they cannot log in.');
+    }
+
+    if (S.fxClaims[fxEmailKey(m.email)]) {
+      return say('Login is already enabled for this email.');
+    }
+
     try {
-      for (const p of rows) await updateDoc(doc(db, 'dues', p._id), { mid: m._id, uid: m._id });
-      await reload(); say('Moved ' + rows.length + ' payment(s) to the login.');
-    } catch (e) { say(e.message); }
+      await fxMakeClaim(m);
+      await reload();
+      say('Login enabled. Ask ' + m.name + ' to sign up with ' + fxEmailKey(m.email) + '.');
+    } catch (e) {
+      say(e.message);
+    }
   }
+
+  // --- Admin: move payments recorded on the old record to the member's login
+  async function fxMoveDues(docId) {
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
+    if (!m || !m.legacyDocId) {
+      return;
+    }
+
+    const rows = (S.fxAll || []).filter(function (p) {
+      return p.mid === m.legacyDocId;
+    });
+
+    try {
+      for (const p of rows) {
+        await updateDoc(doc(db, 'dues', p._id), { mid: m._id, uid: m._id });
+      }
+
+      await reload();
+      say('Moved ' + rows.length + ' payment(s) to the login.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Member: when verified, take over the admin's record if a claim exists
   async function fxClaimLogin() {
-    if (!cfgOk || !S.user || !S.user.emailVerified || !S.me) return;
-    if (S.me._id !== S.user.uid) return;
-    const key = fxEmailKey(S.user.email); if (!key) return;
+    if (!cfgOk || !S.user || !S.user.emailVerified || !S.me) {
+      return;
+    }
+
+    if (S.me._id !== S.user.uid) {
+      return;
+    }
+
+    const key = fxEmailKey(S.user.email);
+
+    if (!key) {
+      return;
+    }
+
     try {
       const c = await getDoc(doc(db, 'claims', key));
-      if (!c.exists() || c.data().claimed) return;
-      const claim = c.data(), oldRef = doc(db, 'members', claim.memberDocId), o = await getDoc(oldRef);
-      if (!o.exists() || o.data().claimedBy) return;
-      const old = o.data(), fields = {};
-      CLAIM_FIELDS.forEach(function (k) { if (old[k] !== undefined) fields[k] = old[k]; });
-      fields.id = claim.memberId; fields.email = key; fields.legacyDocId = claim.memberDocId;
+
+      if (!c.exists() || c.data().claimed) {
+        return;
+      }
+
+      const claim = c.data();
+      const oldRef = doc(db, 'members', claim.memberDocId);
+      const o = await getDoc(oldRef);
+
+      if (!o.exists() || o.data().claimedBy) {
+        return;
+      }
+
+      const old = o.data();
+      const fields = {};
+
+      CLAIM_FIELDS.forEach(function (k) {
+        if (old[k] !== undefined) {
+          fields[k] = old[k];
+        }
+      });
+
+      fields.id = claim.memberId;
+      fields.email = key;
+      fields.legacyDocId = claim.memberDocId;
+
       await updateDoc(doc(db, 'members', S.user.uid), fields);
       await updateDoc(oldRef, { claimedBy: S.user.uid });
       await updateDoc(doc(db, 'claims', key), { claimed: true, claimedUid: S.user.uid });
+
       const n = await getDoc(doc(db, 'members', S.user.uid));
+
       S.me = Object.assign({ _id: S.user.uid }, n.data());
-      await fxLoadMine(); S.msg = 'Your account is linked to ' + claim.memberId + '. Welcome!';
-    } catch (e) { S.msg = 'We could not link your account yet. Please tell the admin.'; }
+      await fxLoadMine();
+      S.msg = 'Your account is linked to ' + claim.memberId + '. Welcome!';
+    } catch (e) {
+      S.msg = 'We could not link your account yet. Please tell the admin.';
+    }
   }
+
+  // --- Run the claim check every time the public data loads
   const _loadPubClaim = window.loadPub;
-  window.loadPub = async function () { await _loadPubClaim(); await fxClaimLogin(); };
-  
+
+  window.loadPub = async function () {
+    await _loadPubClaim();
+    await fxClaimLogin();
+  };
+
+  // --- Admin Members page: the "Member logins" panel above the directory
   function fxLoginPanelHtml() {
     const rows = [];
+
     S.mem.forEach(function (m) {
       if (m.legacyDocId) {
-        const moveBtn = S.fxAll.some(function (p) { return p.mid === m.legacyDocId; }) ? '<button onclick="fxMoveDues(\'' + m._id + '\')">Move dues to login</button>' : '';
-        rows.push('<div class="card"><h3>' + esc(m.name) + '</h3><div class="mute">' + esc(m.id) + ' · Linked to login</div><div class="row">' + moveBtn + '</div></div>');
+        const moveBtn = S.fxAll.some(function (p) { return p.mid === m.legacyDocId; })
+          ? '<button onclick="fxMoveDues(\'' + m._id + '\')">Move dues to login</button>'
+          : '';
+
+        rows.push(
+          '<div class="card"><h3>' + esc(m.name) + '</h3>'
+          + '<div class="mute">' + esc(m.id) + ' · Linked to login</div>'
+          + '<div class="row">' + moveBtn + '</div></div>'
+        );
       } else if (m.byAdmin && fxEmailKey(m.email)) {
-        const c = S.fxClaims[fxEmailKey(m.email)], status = c ? 'Waiting for sign-up with ' + esc(fxEmailKey(m.email)) : 'No login yet';
+        const c = S.fxClaims[fxEmailKey(m.email)];
+        const status = c ? 'Waiting for sign-up with ' + esc(fxEmailKey(m.email)) : 'No login yet';
         const btn = c ? '' : '<button class="p" onclick="fxEnableLogin(\'' + m._id + '\')">Enable login</button>';
-        rows.push('<div class="card"><h3>' + esc(m.name) + '</h3><div class="mute">' + esc(m.id) + ' · ' + status + '</div><div class="row">' + btn + '</div></div>');
+
+        rows.push(
+          '<div class="card"><h3>' + esc(m.name) + '</h3>'
+          + '<div class="mute">' + esc(m.id) + ' · ' + status + '</div>'
+          + '<div class="row">' + btn + '</div></div>'
+        );
       }
     });
-    return '<h2>Member logins</h2><div class="grid">' + (rows.join('') || '<div class="card mute">No member logins to show.</div>') + '</div>';
+
+    return '<h2>Member logins</h2><div class="grid">'
+      + (rows.join('') || '<div class="card mute">No member logins to show.</div>')
+      + '</div>';
   }
+
   const _adminClaim = window.admin;
+
   window.admin = function () {
     const h = _adminClaim();
-    if (!isAdmin() || S.tab !== 'members') return h;
+
+    if (!isAdmin() || S.tab !== 'members') {
+      return h;
+    }
+
     return h.replace('<h2>Directory</h2>', fxLoginPanelHtml() + '<h2>Directory</h2>');
   };
-  Object.assign(window, { fxEnableLogin: fxEnableLogin, fxMoveDues: fxMoveDues });
-  [['fxEnableLogin', 'Enabling...'], ['fxMoveDues', 'Moving...']].forEach(function (pair) { window[pair[0]] = busyWrap(window[pair[0]], pair[1]); });
 
-  // ------------------------------------------------------------
+  Object.assign(window, { fxEnableLogin: fxEnableLogin, fxMoveDues: fxMoveDues });
+
+  [['fxEnableLogin', 'Enabling...'], ['fxMoveDues', 'Moving...']].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
+
+    // ------------------------------------------------------------
   // DUPLICATE EMAIL GUARD
+  // (paste above the "SECTION: Hook-up and start" part, after the claim block)
+  // What it does:
+  //   1. Blocks registering a new member when another record already
+  //      uses that email (or a login is already linked to it).
+  //   2. Blocks "Enable login" when another record uses the same email.
+  //   3. Shows a red "Duplicate emails" warning on the Members page,
+  //      listing each duplicate pair so you can fix it.
+  // Existing duplicates are not deleted. Fix them by removing one record
+  // or changing its email.
   // ------------------------------------------------------------
+
+  // --- Finds another active record that uses this email
   function fxOtherWithEmail(email, exceptId) {
-    const key = fxEmailKey(email); if (!key) return null;
-    return S.mem.filter(function (m) { return fxEmailKey(m.email) === key && m._id !== exceptId && !m.claimedBy; })[0] || null;
+    const key = fxEmailKey(email);
+
+    if (!key) {
+      return null;
+    }
+
+    return S.mem.filter(function (m) {
+      return fxEmailKey(m.email) === key && m._id !== exceptId && !m.claimedBy;
+    })[0] || null;
   }
+
+  // --- Block a new registration that reuses an email
   const _submitGuard = window.submitMember;
+
   window.submitMember = async function () {
-    const email = fxEmailKey(v('ae')), editing = S.editId;
+    const email = fxEmailKey(v('ae'));
+    const editing = S.editId;
+
     if (!editing && email) {
       const other = fxOtherWithEmail(email, '');
-      if (other) return say('That email already belongs to ' + other.id + ' (' + other.name + '). Use that ID to edit them, or use a different email.');
-      if (S.fxClaims[email]) return say('That email already has a login linked to ' + S.fxClaims[email].memberId + '.');
+
+      if (other) {
+        return say('That email already belongs to ' + other.id + ' (' + other.name + '). Use that ID to edit them, or use a different email.');
+      }
+
+      if (S.fxClaims[email]) {
+        return say('That email already has a login linked to ' + S.fxClaims[email].memberId + '.');
+      }
     }
+
     return _submitGuard();
   };
+
+  // --- Block "Enable login" when the email is shared with another record
   const _enableGuard = window.fxEnableLogin;
+
   window.fxEnableLogin = async function (docId) {
-    const m = S.mem.filter(function (x) { return x._id === docId; })[0];
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
     if (m) {
       const other = fxOtherWithEmail(m.email, m._id);
-      if (other) return say('Another record uses this email (' + other.id + '). Fix the duplicate before enabling login.');
+
+      if (other) {
+        return say('Another record uses this email (' + other.id + '). Fix the duplicate before enabling login.');
+      }
     }
+
     return _enableGuard(docId);
   };
+
+  // --- Show a warning on the Members page for any duplicate emails
   const _adminGuard = window.admin;
+
   window.admin = function () {
     const h = _adminGuard();
-    if (!isAdmin() || S.tab !== 'members') return h;
-    const seen = {}, dups = [];
+
+    if (!isAdmin() || S.tab !== 'members') {
+      return h;
+    }
+
+    const seen = {};
+    const dups = [];
+
     S.mem.forEach(function (m) {
-      const k = fxEmailKey(m.email); if (!k || m.claimedBy) return;
-      if (seen[k]) dups.push(seen[k].id + ' and ' + m.id + ' (' + k + ')');
-      else seen[k] = m;
+      const k = fxEmailKey(m.email);
+
+      if (!k || m.claimedBy) {
+        return;
+      }
+
+      if (seen[k]) {
+        dups.push(seen[k].id + ' and ' + m.id + ' (' + k + ')');
+      } else {
+        seen[k] = m;
+      }
     });
-    if (!dups.length) return h;
-    const warning = '<div class="card" style="border-color:var(--bad)"><h3>Duplicate emails</h3>' + dups.map(function (d) { return '<div class="mute">' + esc(d) + '</div>'; }).join('') + '</div>';
+
+    if (!dups.length) {
+      return h;
+    }
+
+    const warning =
+      '<div class="card" style="border-color:var(--bad)"><h3>Duplicate emails</h3>'
+      + dups.map(function (d) { return '<div class="mute">' + esc(d) + '</div>'; }).join('')
+      + '</div>';
+
     return h.replace('<h2>Member logins</h2>', warning + '<h2>Member logins</h2>');
   };
 
+      // ------------------------------------------------------------
+  // AUTO CLEANUP OF CLAIMED RECORDS
+  // (paste above the "SECTION: Hook-up and start" part, after the duplicate guard)
+  // What it does: each time an admin loads the app, for every member
+  //   who has claimed their admin-made record:
+  //   1. Moves any dues payments from the old record to the member's login.
+  //   2. Deletes the old record, but only after step 1 succeeds.
+  // It only touches records that are marked as claimed by that exact
+  // login, so unclaimed records are never removed.
+  // The claim record is kept, so the same person cannot claim again.
   // ------------------------------------------------------------
-  // AUTO CLEANUP
-  // ------------------------------------------------------------
+
+  // --- Admin: after the normal load, tidy up claimed records
   const _loadAdminCleanup = window.loadAdmin;
-  window.loadAdmin = async function () { await _loadAdminCleanup(); await fxAutoCleanup(); };
+
+  window.loadAdmin = async function () {
+    await _loadAdminCleanup();
+    await fxAutoCleanup();
+  };
+
+  // --- Move payments and delete the old record for each claimed member
   async function fxAutoCleanup() {
-    if (!cfgOk || !isAdmin()) return;
-    let all = [], dues = [];
-    try { all = await list('members'); dues = await list('dues'); } catch (e) { return; }
-    const byId = {}; all.forEach(function (m) { byId[m._id] = m; });
-    const linked = all.filter(function (n) { const old = n.legacyDocId ? byId[n.legacyDocId] : null; return !!old && old.claimedBy === n._id; });
+    if (!cfgOk || !isAdmin()) {
+      return;
+    }
+
+    let all = [];
+    let dues = [];
+
+    try {
+      all = await list('members');
+      dues = await list('dues');
+    } catch (e) {
+      return;
+    }
+
+    const byId = {};
+
+    all.forEach(function (m) {
+      byId[m._id] = m;
+    });
+
+    const linked = all.filter(function (n) {
+      const old = n.legacyDocId ? byId[n.legacyDocId] : null;
+
+      return !!old && old.claimedBy === n._id;
+    });
+
     for (const n of linked) {
       const oldId = n.legacyDocId;
+
       try {
-        const rows = dues.filter(function (p) { return p.mid === oldId; });
-        for (const p of rows) await updateDoc(doc(db, 'dues', p._id), { mid: n._id, uid: n._id });
+        const rows = dues.filter(function (p) {
+          return p.mid === oldId;
+        });
+
+        for (const p of rows) {
+          await updateDoc(doc(db, 'dues', p._id), { mid: n._id, uid: n._id });
+        }
+
         await deleteDoc(doc(db, 'members', oldId));
-      } catch (e) {}
+      } catch (e) {
+        // Leave the old record in place if anything fails, so nothing is lost
+      }
     }
   }
+
+
 
   // ------------------------------------------------------------
   // GIFTS: BANK DETAILS AND MEMBER LIST
+  // (paste above the "SECTION: Hook-up and start" part, after the auto cleanup block)
+  // What it does:
+  //   1. Members add their bank account on their profile, with a switch
+  //      "Show my account to other members" (off by default).
+  //   2. A member list (directory) holds each member's name, ID, village
+  //      and photo, and the account only when the switch is on.
+  //   3. The "Members" page, for logged-in members, lists everyone.
+  //      Gift opens the account with a Copy button.
+  //   4. Admins can add bank details for members who can't log in, and
+  //      refresh the list from the "Accounts & gifts" section. The list
+  //      also refreshes when an admin saves a member.
+  // Needs the Firebase rules for "directory" (see firestore.rules).
   // ------------------------------------------------------------
+
   S.fxDir = S.fxDir || [];
+
+  // --- Small style for the on/off switch
   const giftStyle = document.createElement('style');
+
   giftStyle.textContent = '.fxSwitch{display:flex;gap:8px;align-items:center}.fxSwitch input{width:auto}';
   document.head.appendChild(giftStyle);
 
+  // --- Writes one member's entry in the list. The account is included only when switched on.
   async function fxWriteDirectory(m) {
-    if (!m || !m.id) return;
-    const entry = { memberId: m.id, name: m.name || '', village: m.village || '', img: m.img || '', showAcct: !!(m.showAcct && m.acct) };
-    if (entry.showAcct) { entry.bank = m.bank || ''; entry.acct = m.acct; entry.acctName = m.acctName || ''; }
+    if (!m || !m.id) {
+      return;
+    }
+
+    const entry = {
+      memberId: m.id,
+      name: m.name || '',
+      village: m.village || '',
+      img: m.img || '',
+      showAcct: !!(m.showAcct && m.acct)
+    };
+
+    if (entry.showAcct) {
+      entry.bank = m.bank || '';
+      entry.acct = m.acct;
+      entry.acctName = m.acctName || '';
+    }
+
     await setDoc(doc(db, 'directory', m.id), entry);
   }
+
+  // --- Loads the member list for verified members
   async function fxLoadDirectory() {
     S.fxDir = [];
-    if (!cfgOk || !S.user || !S.user.emailVerified) return;
-    try { S.fxDir = (await list('directory')).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }); }
-    catch (e) { S.fxDir = []; }
+
+    if (!cfgOk || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    try {
+      S.fxDir = (await list('directory')).sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name));
+      });
+    } catch (e) {
+      S.fxDir = [];
+    }
   }
+
   const _loadPubGifts = window.loadPub;
-  window.loadPub = async function () { await _loadPubGifts(); await fxLoadDirectory(); };
-  
+
+  window.loadPub = async function () {
+    await _loadPubGifts();
+    await fxLoadDirectory();
+  };
+
+  // --- Member: save their own bank details and update their list entry
   async function fxSaveGift() {
-    const m = S.me; if (!m) return;
+    const m = S.me;
+
+    if (!m) {
+      return;
+    }
+
     const box = document.getElementById('fxg_show');
-    const next = { bank: v('fxg_bank'), acct: v('fxg_acct'), acctName: v('fxg_name'), showAcct: !!(box && box.checked) };
-    if (next.showAcct && !next.acct) return say('Add your account number before showing it to others.');
+    const next = {
+      bank: v('fxg_bank'),
+      acct: v('fxg_acct'),
+      acctName: v('fxg_name'),
+      showAcct: !!(box && box.checked)
+    };
+
+    if (next.showAcct && !next.acct) {
+      return say('Add your account number before showing it to others.');
+    }
+
     try {
       await updateDoc(doc(db, 'members', m._id), next);
       S.me = Object.assign({}, m, next);
-      await fxWriteDirectory(S.me); await fxLoadDirectory(); say('Bank details saved.');
-    } catch (e) { say(e.message); }
+      await fxWriteDirectory(S.me);
+      await fxLoadDirectory();
+      say('Bank details saved.');
+    } catch (e) {
+      say(e.message);
+    }
   }
+
+  // --- Profile: the bank card for the member's own profile
   function fxGiftCardHtml(m) {
-    return '<div class="card" style="margin-top:14px"><h3>Bank account for gifts</h3><p class="mute">Used when other members want to gift you. Turn on the switch to show it to them.</p><label>Bank name</label><input id="fxg_bank" value="' + esc(m.bank || '') + '"><label>Account number</label><input id="fxg_acct" inputmode="numeric" value="' + esc(m.acct || '') + '"><label>Account name</label><input id="fxg_name" value="' + esc(m.acctName || '') + '"><label class="fxSwitch"><input id="fxg_show" type="checkbox"' + (m.showAcct ? ' checked' : '') + '> Show my account to other members</label><button class="p" onclick="fxSaveGift()">Save bank details</button></div>';
+    return '<div class="card" style="margin-top:14px">'
+      + '<h3>Bank account for gifts</h3>'
+      + '<p class="mute">Used when other members want to gift you. Turn on the switch to show it to them.</p>'
+      + '<label>Bank name</label><input id="fxg_bank" value="' + esc(m.bank || '') + '">'
+      + '<label>Account number</label><input id="fxg_acct" inputmode="numeric" value="' + esc(m.acct || '') + '">'
+      + '<label>Account name</label><input id="fxg_name" value="' + esc(m.acctName || '') + '">'
+      + '<label class="fxSwitch"><input id="fxg_show" type="checkbox"' + (m.showAcct ? ' checked' : '') + '> Show my account to other members</label>'
+      + '<button class="p" onclick="fxSaveGift()">Save bank details</button>'
+      + '</div>';
   }
+
+  // --- Members page: everyone in the list, with Gift where an account is shared
   function fxMembersPageHtml() {
-    if (!S.user || !S.user.emailVerified) return '<div class="card">Verify your email to see members.</div>';
+    if (!S.user || !S.user.emailVerified) {
+      return '<div class="card">Verify your email to see members.</div>';
+    }
+
     const me = S.me ? S.me.id : '';
     const cards = S.fxDir.map(function (d) {
-      const pic = d.img ? '<img class="av" src="' + esc(d.img) + '" alt="">' : '<div class="av">' + esc(String(d.name || '?').charAt(0).toUpperCase()) + '</div>';
+      const pic = d.img
+        ? '<img class="av" src="' + esc(d.img) + '" alt="">'
+        : '<div class="av">' + esc(String(d.name || '?').charAt(0).toUpperCase()) + '</div>';
       const who = d.memberId === me ? ' (you)' : '';
-      const btn = d.showAcct ? '<button class="p" onclick="fxGiftOpen(\'' + esc(d.memberId) + '\')">Gift</button>' : '<span class="mute">No account shared</span>';
-      return '<div class="card mem">' + pic + '<h3>' + esc(d.name) + esc(who) + '</h3><div class="mute">' + esc(d.memberId) + ' · ' + esc(d.village || '') + '</div><div class="row" style="justify-content:center">' + btn + '</div></div>';
+      const btn = d.showAcct
+        ? '<button class="p" onclick="fxGiftOpen(\'' + esc(d.memberId) + '\')">Gift</button>'
+        : '<span class="mute">No account shared</span>';
+
+      return '<div class="card mem">' + pic
+        + '<h3>' + esc(d.name) + esc(who) + '</h3>'
+        + '<div class="mute">' + esc(d.memberId) + ' · ' + esc(d.village || '') + '</div>'
+        + '<div class="row" style="justify-content:center">' + btn + '</div>'
+        + '</div>';
     }).join('');
-    return '<h2>Members</h2><p class="mute">Everyone in the community. Members who share their account can receive gifts from you.</p><div class="grid">' + (cards || '<div class="card mute">No members yet.</div>') + '</div>';
+
+    return '<h2>Members</h2>'
+      + '<p class="mute">Everyone in the community. Members who share their account can receive gifts from you.</p>'
+      + '<div class="grid">' + (cards || '<div class="card mute">No members yet.</div>') + '</div>';
   }
+
+  // --- Gift: opens the member's account with a Copy button
   function fxGiftOpen(memberId) {
-    const d = S.fxDir.filter(function (x) { return x.memberId === memberId; })[0];
-    if (!d || !d.showAcct) return say('This member has not shared an account.');
+    const d = S.fxDir.filter(function (x) {
+      return x.memberId === memberId;
+    })[0];
+
+    if (!d || !d.showAcct) {
+      return say('This member has not shared an account.');
+    }
+
     fxCloseDonate();
+
     const box = document.createElement('div');
-    box.className = 'modal'; box.id = 'donModal';
-    box.onclick = function (e) { if (e.target === box) fxCloseDonate(); };
-    box.innerHTML = '<div class="card"><h3>Gift to ' + esc(d.name) + '</h3><p class="mute">Send your gift to this account from your bank app.</p>' + acctHtml({ bank: d.bank, acct: d.acct, name: d.acctName }) + '<div class="row"><button onclick="fxCloseDonate()">Close</button></div></div>';
+
+    box.className = 'modal';
+    box.id = 'donModal';
+    box.onclick = function (e) {
+      if (e.target === box) {
+        fxCloseDonate();
+      }
+    };
+    box.innerHTML = '<div class="card"><h3>Gift to ' + esc(d.name) + '</h3>'
+      + '<p class="mute">Send your gift to this account from your bank app.</p>'
+      + acctHtml({ bank: d.bank, acct: d.acct, name: d.acctName })
+      + '<div class="row"><button onclick="fxCloseDonate()">Close</button></div></div>';
     document.body.appendChild(box);
   }
+
+  // --- Render: Members page, and the bank card on the member's own profile
   const _renderGifts = window.render;
+
   window.render = function () {
-    if (S.ready && S.view === 'memberlist' && (!S.user || !S.user.emailVerified)) S.view = S.user ? 'verify' : 'home';
+    if (S.ready && S.view === 'memberlist' && (!S.user || !S.user.emailVerified)) {
+      S.view = S.user ? 'verify' : 'home';
+    }
+
     _renderGifts();
-    const app = $('app'); if (!app) return;
-    if (S.view === 'me' && !S.card && S.me) app.insertAdjacentHTML('beforeend', fxGiftCardHtml(S.me));
-    if (S.view === 'memberlist') app.innerHTML = fxMembersPageHtml();
+
+    const app = $('app');
+
+    if (!app) {
+      return;
+    }
+
+    if (S.view === 'me' && !S.card && S.me) {
+      app.insertAdjacentHTML('beforeend', fxGiftCardHtml(S.me));
+    }
+
+    if (S.view === 'memberlist') {
+      app.innerHTML = fxMembersPageHtml();
+    }
   };
+
+  // --- Menu: "Members" for verified members
   const _navGifts = window.nav;
+
   window.nav = function () {
     _navGifts();
-    const nav = document.getElementById('nav'); if (!nav || !S.user || !S.user.emailVerified) return;
+
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
     const btn = document.createElement('button');
-    btn.textContent = 'Members'; btn.setAttribute('onclick', "go('memberlist')");
-    if (S.view === 'memberlist') btn.classList.add('on');
-    const out = Array.prototype.slice.call(nav.children).filter(function (b) { return (b.getAttribute('onclick') || '').indexOf('out()') >= 0; })[0];
-    if (out) nav.insertBefore(btn, out); else nav.appendChild(btn);
+
+    btn.textContent = 'Members';
+    btn.setAttribute('onclick', "go('memberlist')");
+
+    if (S.view === 'memberlist') {
+      btn.classList.add('on');
+    }
+
+    const out = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (out) {
+      nav.insertBefore(btn, out);
+    } else {
+      nav.appendChild(btn);
+    }
   };
+
+  // --- Admin: list entries for every active member, and remove revoked members
   async function fxSyncDirectory() {
     for (const m of S.mem) {
-      if (m.status === 'revoked') await deleteDoc(doc(db, 'directory', m.id));
-      else await fxWriteDirectory(m);
+      if (m.status === 'revoked') {
+        await deleteDoc(doc(db, 'directory', m.id));
+      } else {
+        await fxWriteDirectory(m);
+      }
     }
+
     await fxLoadDirectory();
   }
+
   async function fxRefreshDirectory() {
-    try { await fxSyncDirectory(); say('Member list refreshed.'); } catch (e) { say(e.message); }
+    try {
+      await fxSyncDirectory();
+      say('Member list refreshed.');
+    } catch (e) {
+      say(e.message);
+    }
   }
+
+  // --- Admin: after a member is saved, refresh the list too
   const _subGifts = window.submitMember;
+
   window.submitMember = async function () {
     await _subGifts();
+
     if (isAdmin() && /^(Saved|Registered)/.test(S.msg || '')) {
-      try { await fxSyncDirectory(); } catch (e) {}
+      try {
+        await fxSyncDirectory();
+      } catch (e) {
+        // The list can still be refreshed with the button
+      }
     }
   };
+
+  // --- Admin: bank details for a member by ID
   async function fxAdminBank() {
-    const id = v('fxa_id').toUpperCase(), m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
-    if (!m) return say('No member with that ID.');
+    const id = v('fxa_id').toUpperCase();
+    const m = S.mem.filter(function (x) {
+      return String(x.id).toUpperCase() === id;
+    })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
     const box = document.getElementById('fxa_show');
-    const next = { bank: v('fxa_bank'), acct: v('fxa_acct'), acctName: v('fxa_name'), showAcct: !!(box && box.checked) };
-    if (next.showAcct && !next.acct) return say('Add the account number before showing it to others.');
-    try { await updateDoc(doc(db, 'members', m._id), next); await fxWriteDirectory(Object.assign({}, m, next)); await reload(); say('Bank details saved for ' + m.id + '.'); }
-    catch (e) { say(e.message); }
+    const next = {
+      bank: v('fxa_bank'),
+      acct: v('fxa_acct'),
+      acctName: v('fxa_name'),
+      showAcct: !!(box && box.checked)
+    };
+
+    if (next.showAcct && !next.acct) {
+      return say('Add the account number before showing it to others.');
+    }
+
+    try {
+      await updateDoc(doc(db, 'members', m._id), next);
+      await fxWriteDirectory(Object.assign({}, m, next));
+      await reload();
+      say('Bank details saved for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
   }
+
+  // --- Admin: "Accounts & gifts" tile and page
   const _adminGifts = window.admin;
+
   window.admin = function () {
-    if (isAdmin() && S.tab === 'fxgifts') return fxGiftsAdmin();
+    if (isAdmin() && S.tab === 'fxgifts') {
+      return fxGiftsAdmin();
+    }
+
     let h = _adminGifts();
+
     if (isAdmin() && S.tab === 'dash') {
-      const tile = '<div class="card tile" onclick="S.tab=\'fxgifts\';render();window.scrollTo(0,0)"><div class="ic">🎁</div><h3>Accounts &amp; gifts</h3><div class="mute">Bank details and the member list</div></div>';
+      const tile = '<div class="card tile" onclick="S.tab=\'fxgifts\';render();window.scrollTo(0,0)">'
+        + '<div class="ic">🎁</div>'
+        + '<h3>Accounts &amp; gifts</h3>'
+        + '<div class="mute">Bank details and the member list</div>'
+        + '</div>';
       const i = h.lastIndexOf('</div>');
+
       h = h.slice(0, i) + tile + h.slice(i);
     }
+
     return h;
   };
+
   function fxGiftsAdmin() {
-    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div><h2>Accounts &amp; gifts</h2><div class="card"><h3>Bank details for a member</h3><p class="mute">Use this for members who cannot log in.</p><label>Member ID</label><input id="fxa_id" placeholder="e.g. UCA-0002" autocapitalize="characters"><label>Bank name</label><input id="fxa_bank"><label>Account number</label><input id="fxa_acct" inputmode="numeric"><label>Account name</label><input id="fxa_name"><label class="fxSwitch"><input id="fxa_show" type="checkbox"> Show this account to other members</label><button class="p" onclick="fxAdminBank()">Save bank details</button></div><div class="card" style="margin-top:14px"><h3>Member list</h3><p class="mute">Rebuilds the list members see. It also refreshes each time you save a member.</p><button onclick="fxRefreshDirectory()">Refresh member list</button></div>';
+    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
+      + '<h2>Accounts &amp; gifts</h2>'
+      + '<div class="card"><h3>Bank details for a member</h3>'
+      + '<p class="mute">Use this for members who cannot log in.</p>'
+      + '<label>Member ID</label><input id="fxa_id" placeholder="e.g. UCA-0002" autocapitalize="characters">'
+      + '<label>Bank name</label><input id="fxa_bank">'
+      + '<label>Account number</label><input id="fxa_acct" inputmode="numeric">'
+      + '<label>Account name</label><input id="fxa_name">'
+      + '<label class="fxSwitch"><input id="fxa_show" type="checkbox"> Show this account to other members</label>'
+      + '<button class="p" onclick="fxAdminBank()">Save bank details</button>'
+      + '</div>'
+      + '<div class="card" style="margin-top:14px"><h3>Member list</h3>'
+      + '<p class="mute">Rebuilds the list members see. It also refreshes each time you save a member.</p>'
+      + '<button onclick="fxRefreshDirectory()">Refresh member list</button>'
+      + '</div>';
   }
-  Object.assign(window, { fxSaveGift: fxSaveGift, fxGiftOpen: fxGiftOpen, fxAdminBank: fxAdminBank, fxRefreshDirectory: fxRefreshDirectory });
-  [['fxSaveGift', 'Saving...'], ['fxAdminBank', 'Saving...'], ['fxRefreshDirectory', 'Refreshing...']].forEach(function (pair) { window[pair[0]] = busyWrap(window[pair[0]], pair[1]); });
+
+  Object.assign(window, {
+    fxSaveGift: fxSaveGift,
+    fxGiftOpen: fxGiftOpen,
+    fxAdminBank: fxAdminBank,
+    fxRefreshDirectory: fxRefreshDirectory
+  });
+
+  [
+    ['fxSaveGift', 'Saving...'],
+    ['fxAdminBank', 'Saving...'],
+    ['fxRefreshDirectory', 'Refreshing...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
 
   // ------------------------------------------------------------
   // FINANCE: BANK ALERTS, CASH, EXPENSES, BALANCE AND RECEIPTS
+  // (paste above the "SECTION: Hook-up and start" part, after the gifts block)
+  // What it does:
+  //   1. Admins paste a credit bank alert. Only the amount, date, sender
+  //      name and masked narration are saved. Debit alerts are refused.
+  //      The same alert cannot be saved twice.
+  //   2. Donations and dues can be Bank or Cash. Cash counts straight
+  //      away. Bank waits until an admin matches it to an alert.
+  //   3. Admins record expenses (date, amount, purpose, member who
+  //      received it, optional receipt photo).
+  //   4. Finance page (everyone, logged in): balance, donations,
+  //      projects, dues, bank alerts and expenses.
+  //      Balance = bank alerts + cash donations + cash dues - expenses.
+  //   5. Each member can download a receipt for each confirmed payment.
+  // Totals are saved in settings/finance, so members see the totals
+  // without seeing other people's names or payments.
+  // Needs the Firebase rules for "alerts" and "expenses".
   // ------------------------------------------------------------
+
   S.fin = S.fin || {};
   S.fxAlerts = S.fxAlerts || [];
   S.fxExp = S.fxExp || [];
   S.fxDon = S.fxDon || [];
   S.fxDraft = S.fxDraft || '';
   S.fxDraftParsed = S.fxDraftParsed || null;
-  S.fxAlertQ = S.fxAlertQ || ''; // Search state for alerts
 
-  function fxNewestFirst(a, b) { return String(b.date || '').localeCompare(String(a.date || '')); }
+  // --- Newest first, by date text (YYYY-MM-DD)
+  function fxNewestFirst(a, b) {
+    return String(b.date || '').localeCompare(String(a.date || ''));
+  }
 
+  // --- Loads the public totals, alerts and expenses for logged-in members
   async function fxLoadFinance() {
-    if (!cfgOk) return;
-    try { const f = await getDoc(doc(db, 'settings', 'finance')); S.fin = f.exists() ? f.data() : {}; }
-    catch (e) { S.fin = {}; }
-    S.fxAlerts = []; S.fxExp = [];
+    if (!cfgOk) {
+      return;
+    }
+
+    try {
+      const f = await getDoc(doc(db, 'settings', 'finance'));
+
+      S.fin = f.exists() ? f.data() : {};
+    } catch (e) {
+      S.fin = {};
+    }
+
+    S.fxAlerts = [];
+    S.fxExp = [];
+
     if (S.user && S.user.emailVerified) {
-      try { S.fxAlerts = (await list('alerts')).sort(fxNewestFirst); S.fxExp = (await list('expenses')).sort(fxNewestFirst); }
-      catch (e) { S.fxAlerts = []; S.fxExp = []; }
+      try {
+        S.fxAlerts = (await list('alerts')).sort(fxNewestFirst);
+        S.fxExp = (await list('expenses')).sort(fxNewestFirst);
+      } catch (e) {
+        S.fxAlerts = [];
+        S.fxExp = [];
+      }
     }
   }
-  const _loadPubFin = window.loadPub;
-  window.loadPub = async function () { await _loadPubFin(); await fxLoadFinance(); };
-  
-  const _loadAdminFin = window.loadAdmin;
-  window.loadAdmin = async function () { await _loadAdminFin(); S.fxDon = await list('donations'); };
 
+  const _loadPubFin = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubFin();
+    await fxLoadFinance();
+  };
+
+  // --- Admin: also load all donations (needed for matching)
+  const _loadAdminFin = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminFin();
+    S.fxDon = await list('donations');
+  };
+
+  // --- Adds up every money card and saves the totals in settings/finance
   async function fxRecalcFinance() {
-    const dons = await list('donations'), dues = await list('dues'), alerts = await list('alerts'), exps = await list('expenses'), projs = await list('projects');
-    const sum = function (arr, keep) { return arr.filter(keep).reduce(function (s, x) { return s + (Number(x.amount) || 0); }, 0); };
+    const dons = await list('donations');
+    const dues = await list('dues');
+    const alerts = await list('alerts');
+    const exps = await list('expenses');
+    const projs = await list('projects');
+
+    const sum = function (arr, keep) {
+      return arr.filter(keep).reduce(function (s, x) {
+        return s + (Number(x.amount) || 0);
+      }, 0);
+    };
+
     const bankIn = sum(alerts, function () { return true; });
     const cashDon = sum(dons, function (d) { return d.method === 'cash' && d.status === 'confirmed'; });
     const cashDues = sum(dues, function (p) { return p.method === 'cash' && p.status === 'confirmed'; });
     const expenses = sum(exps, function () { return true; });
+
     const totals = {
       donations: sum(dons, function (d) { return d.status !== 'waiting'; }),
       dues: sum(dues, function (p) { return p.status === 'confirmed'; }),
       projects: projs.reduce(function (s, p) { return s + (Number(p.raised) || 0); }, 0),
-      alerts: bankIn, expenses: expenses, balance: bankIn + cashDon + cashDues - expenses
+      alerts: bankIn,
+      expenses: expenses,
+      balance: bankIn + cashDon + cashDues - expenses
     };
+
     await setDoc(doc(db, 'settings', 'finance'), totals);
     S.fin = totals;
   }
 
+  // --- Admin: "Recalculate totals" button
   async function fxRecalcNow() {
-    try { await fxRecalcFinance(); await reload(); say('Totals updated.'); } catch (e) { say(e.message); }
-  }
-
-  function fxPad2(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
-
-  function fxParseDate(s) {
-    s = String(s || '').trim(); if (!s) return '';
-    s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1'); // Remove ordinal suffixes
-    let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
-    if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
-    m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
-    if (m) { let y = m[3]; if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y; return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]); }
-    m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
-    if (m) { const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase()); if (mo >= 0) { let y = m[3]; if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y; return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]); } }
-    m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
-    if (m) { const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase()); if (mo >= 0) { let y = m[3]; if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y; return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]); } }
-    return '';
-  }
-
-  function fxParseAlert(text) {
-    const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-    const warnings = [];
-    const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
-    const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
-    if (debit && !credit) return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
-    if (!credit) warnings.push('No credit keyword found — verify this is an incoming transfer.');
-
-    const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
-    const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
-    if (!(amount > 0)) warnings.push('Amount not found — enter it manually.');
-
-    let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
-    if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
-    if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-    const date = dm ? fxParseDate(dm[1]) : '';
-    if (!date) warnings.push('Date not found — enter it manually.');
-
-    let sender = '';
-    const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
-    if (senderMatch) sender = senderMatch[1].trim();
-    else {
-      const beforeAmt = t.substring(0, amt ? amt.index : 100);
-      const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
-      if (clean.length > 2 && clean.length < 40) sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+    try {
+      await fxRecalcFinance();
+      await reload();
+      say('Totals updated.');
+    } catch (e) {
+      say(e.message);
     }
-    sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
-    if (!sender) warnings.push('Sender not found — enter it manually.');
-
-    return { amount: amount, date: date, sender: sender, narration: t.replace(/\d{4,}/g, '****'), warnings: warnings };
   }
 
+  // --- Pads a number to two digits (used by date parsing)
+  function fxPad2(n) {
+    n = String(n);
+    return n.length < 2 ? '0' + n : n;
+  }
+
+  // --- Reads any common date format → "YYYY-MM-DD" (or '' if unreadable)
+  function fxParseDate(s) {
+  s = String(s || '').trim();
+  if (!s) return '';
+
+  // Remove ordinal suffixes like 1st, 2nd, 3rd, 10th
+  s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
+
+  // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
+  let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
+  if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
+
+  // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
+  m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
+  if (m) {
+    let y = m[3];
+    if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+    return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
+  }
+
+  // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
+  m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
+  if (m) {
+    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
+    if (mo >= 0) {
+      let y = m[3];
+      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
+    }
+  }
+
+  // Nov 12, 2026 / Nov 12 2026
+  m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
+  if (m) {
+    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
+    if (mo >= 0) {
+      let y = m[3];
+      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
+    }
+  }
+
+  return '';
+}
+  // --- Reads a credit alert (any bank / fintech) and returns pre-filled fields.
+  //     Returns { error } for a debit alert; otherwise returns
+  //     { amount, date, sender, narration, warnings[] } so the admin
+  //     can fix any blank or wrong field before saving.
+    // ------------------------------------------------------------
+  
+ function fxParseAlert(text) {
+  const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+  const warnings = [];
+
+  const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
+  // Added withdrawal/withdrawn/out to this block
+  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
+
+  if (debit && !credit) {
+    return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
+  }
+  if (!credit) {
+    warnings.push('No credit keyword found — verify this is an incoming transfer.');
+  }
+
+  // Amount
+  const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
+  if (!(amount > 0)) {
+    warnings.push('Amount not found — enter it manually.');
+  }
+
+  // Date
+  let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
+  if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
+  if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+  
+  const date = dm ? fxParseDate(dm[1]) : '';
+  if (!date) {
+    warnings.push('Date not found — enter it manually.');
+  }
+
+  // Sender (Advanced)
+  let sender = '';
+  // Try "Name:", "Sender:", "from", etc. Stop at Bank, Acct, Amount, Date, etc.
+  const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
+  
+  if (senderMatch) {
+    sender = senderMatch[1].trim();
+  } else {
+    // Fallback: Grab the first line/chunk of text before the amount
+    const beforeAmt = t.substring(0, amt ? amt.index : 100);
+    const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
+    if (clean.length > 2 && clean.length < 40) {
+      sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+    }
+  }
+
+  // Clean up any leftover bank names from the sender string
+  sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
+
+  if (!sender) {
+    warnings.push('Sender not found — enter it manually.');
+  }
+
+  return {
+    amount: amount,
+    date: date,
+    sender: sender,
+    narration: t.replace(/\d{4,}/g, '****'), // Kept for the database, but hidden in UI
+    warnings: warnings
+  };
+}
+  // --- Admin: step 1 — read the pasted alert and show the confirm fields
   function fxParseAlertDraft() {
     const raw = $('fxp_text') ? $('fxp_text').value : '';
-    if (!raw.trim()) return say('Paste a bank alert first.');
+
+    if (!raw.trim()) {
+      return say('Paste a bank alert first.');
+    }
+
     S.fxDraft = raw;
+
     const r = fxParseAlert(raw);
-    if (r.error) { S.fxDraftParsed = null; return say(r.error); }
+
+    if (r.error) {
+      S.fxDraftParsed = null;
+      return say(r.error);
+    }
+
     S.fxDraftParsed = r;
-    if (r.warnings && r.warnings.length) S.msg = r.warnings.join(' ');
-    else S.msg = 'Looks good — tap Save alert.';
+
+    if (r.warnings && r.warnings.length) {
+      S.msg = r.warnings.join(' ');
+    } else {
+      S.msg = 'Looks good — tap Save alert.';
+    }
+
     render();
   }
 
+  // --- Admin: step 2 — save the (possibly corrected) values
   async function fxConfirmAlert() {
     const amount = Number(v('fxp_amount'));
     const date = v('fxp_date');
     const sender = v('fxp_sender');
-    const narration = S.fxDraftParsed ? S.fxDraftParsed.narration : (S.fxDraft || '').replace(/\d{4,}/g, '****');
+    const narration = S.fxDraftParsed
+      ? S.fxDraftParsed.narration
+      : (S.fxDraft || '').replace(/\d{4,}/g, '****');
 
     if (!(amount > 0)) return say('Enter the amount.');
-    if (!date) return say('Enter the date.');
-    if (!sender) return say('Enter the sender.');
-
-    // FIX: Check for duplicates based on Date, Amount, and Sender
-    const exists = S.fxAlerts.some(function(a) {
-      return a.date === date && Number(a.amount) === amount && a.sender === sender;
-    });
-    if (exists) {
-      return say('An alert with this exact Date, Amount, and Sender is already saved.');
-    }
+    if (!date)        return say('Enter the date.');
+    if (!sender)      return say('Enter the sender.');
 
     const key = [date, amount, sender, narration].join('|');
-    try {
-      await addDoc(collection(db, 'alerts'), { date: date, amount: amount, sender: sender, narration: narration, key: key, matchedTo: '', at: serverTimestamp() });
-      S.fxDraft = ''; S.fxDraftParsed = null;
-      await fxRecalcFinance(); await reload(); say('Bank alert saved.');
-    } catch (e) { say(e.message); }
-  }
 
-  function fxCancelAlert() { S.fxDraft = ''; S.fxDraftParsed = null; render(); }
+    if (S.fxAlerts.some(function (a) { return a.key === key; })) {
+      return say('This alert is already saved, so it was not added twice.');
+    }
 
-  async function fxDelAlert(id) {
-    if (!confirm('Delete this bank alert?')) return;
     try {
-      await deleteDoc(doc(db, 'alerts', id));
+      await addDoc(collection(db, 'alerts'), {
+        date: date,
+        amount: amount,
+        sender: sender,
+        narration: narration,
+        key: key,
+        matchedTo: '',
+        at: serverTimestamp()
+      });
+      S.fxDraft = '';
+      S.fxDraftParsed = null;
       await fxRecalcFinance();
       await reload();
-      say('Alert deleted.');
-    } catch (e) { say(e.message); }
+      say('Bank alert saved.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Admin: cancel the confirm step
+  function fxCancelAlert() {
+    S.fxDraft = '';
+    S.fxDraftParsed = null;
+    render();
+  }
+
+  // --- Admin: match an alert to a waiting bank donation or a pending dues payment
   async function fxMatchAlert(alertId) {
-    const box = document.getElementById('fxm_' + alertId), pick = box ? box.value : '';
-    if (!pick) return say('Choose the payment to match.');
-    const parts = pick.split(':'), kind = parts[0], id = parts[1];
+    const box = document.getElementById('fxm_' + alertId);
+    const pick = box ? box.value : '';
+
+    if (!pick) {
+      return say('Choose the payment to match.');
+    }
+
+    const parts = pick.split(':');
+    const kind = parts[0];
+    const id = parts[1];
+
     try {
       if (kind === 'donation') {
         const d = S.fxDon.filter(function (x) { return x._id === id; })[0];
+
         await updateDoc(doc(db, 'donations', id), { status: 'confirmed', method: 'bank' });
-        if (d && d.pid) await updateDoc(doc(db, 'projects', d.pid), { raised: increment(Number(d.amount) || 0) });
+
+        if (d && d.pid) {
+          await updateDoc(doc(db, 'projects', d.pid), { raised: increment(Number(d.amount) || 0) });
+        }
       } else {
         await updateDoc(doc(db, 'dues', id), { status: 'confirmed', method: 'bank' });
       }
+
       await updateDoc(doc(db, 'alerts', alertId), { matchedTo: pick });
-      await fxRecalcFinance(); await reload(); say('Matched.');
-    } catch (e) { say(e.message); }
+      await fxRecalcFinance();
+      await reload();
+      say('Matched.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Admin: confirm a member's pending payment as cash
   async function fxConfirmCash(id) {
-    try { await updateDoc(doc(db, 'dues', id), { status: 'confirmed', method: 'cash' }); await fxRecalcFinance(); await reload(); }
-    catch (e) { say(e.message); }
+    try {
+      await updateDoc(doc(db, 'dues', id), { status: 'confirmed', method: 'cash' });
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Admin: record an expense
   async function fxSaveExpense() {
-    const amount = Number(v('fxe_amt')), purpose = v('fxe_purpose'), who = v('fxe_who').toUpperCase();
+    const amount = Number(v('fxe_amt'));
+    const purpose = v('fxe_purpose');
+    const who = v('fxe_who').toUpperCase();
     const m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === who; })[0];
-    if (!(amount > 0) || !purpose) return say('Enter the amount and the purpose.');
-    if (!m) return say('Enter the ID of the member who received the money.');
+
+    if (!(amount > 0) || !purpose) {
+      return say('Enter the amount and the purpose.');
+    }
+
+    if (!m) {
+      return say('Enter the ID of the member who received the money.');
+    }
+
     try {
       await addDoc(collection(db, 'expenses'), {
-        date: v('fxe_date') || fxToday(), amount: amount, purpose: purpose,
-        receivedBy: m.id, receivedName: m.name || '', receipt: IMG.exp || '', at: serverTimestamp()
+        date: v('fxe_date') || fxToday(),
+        amount: amount,
+        purpose: purpose,
+        receivedBy: m.id,
+        receivedName: m.name || '',
+        receipt: IMG.exp || '',
+        at: serverTimestamp()
       });
-      IMG.exp = ''; await fxRecalcFinance(); await reload(); say('Expense recorded.');
-    } catch (e) { say(e.message); }
+      IMG.exp = '';
+      await fxRecalcFinance();
+      await reload();
+      say('Expense recorded.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Admin: delete an expense
   async function fxDelExpense(id) {
-    if (!confirm('Delete this expense?')) return;
-    try { await deleteDoc(doc(db, 'expenses', id)); await fxRecalcFinance(); await reload(); }
-    catch (e) { say(e.message); }
-  }
+    if (!confirm('Delete this expense?')) {
+      return;
+    }
 
-  async function fxAddDonation() {
-    const amount = +v('da'), pid = v('dp'), p = S.proj.filter(function (x) { return x._id === pid; })[0];
-    const method = v('dm') === 'bank' ? 'bank' : 'cash';
-    if (!p || !(amount > 0)) return say('Choose a project and amount.');
-    const status = method === 'bank' ? 'waiting' : 'confirmed';
     try {
-      await addDoc(collection(db, 'donations'), { donor: v('dn') || 'Anonymous', amount: amount, pid: pid, project: p.title, method: method, status: status, at: serverTimestamp() });
-      if (status === 'confirmed') await updateDoc(doc(db, 'projects', pid), { raised: increment(amount) });
-      await fxRecalcFinance(); await reload(); say(status === 'waiting' ? 'Saved. It will count once its bank alert is matched.' : 'Donation recorded.');
-    } catch (e) { say(e.message); }
+      await deleteDoc(doc(db, 'expenses', id));
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Donations: Bank waits for a matched alert, Cash counts straight away
+  async function fxAddDonation() {
+    const amount = +v('da');
+    const pid = v('dp');
+    const p = S.proj.filter(function (x) { return x._id === pid; })[0];
+    const method = v('dm') === 'bank' ? 'bank' : 'cash';
+
+    if (!p || !(amount > 0)) {
+      return say('Choose a project and amount.');
+    }
+
+    const status = method === 'bank' ? 'waiting' : 'confirmed';
+
+    try {
+      await addDoc(collection(db, 'donations'), {
+        donor: v('dn') || 'Anonymous',
+        amount: amount,
+        pid: pid,
+        project: p.title,
+        method: method,
+        status: status,
+        at: serverTimestamp()
+      });
+
+      if (status === 'confirmed') {
+        await updateDoc(doc(db, 'projects', pid), { raised: increment(amount) });
+      }
+
+      await fxRecalcFinance();
+      await reload();
+      say(status === 'waiting'
+        ? 'Saved. It will count once its bank alert is matched.'
+        : 'Donation recorded.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Dues recorded by an admin: Bank waits for a matched alert, Cash counts
   async function fxRecordDues() {
-    const id = v('fx_rid').toUpperCase(), m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
-    if (!m) return say('No member with that ID.');
-    const plan = fxPlanOf(m), count = parseInt(v('fx_rn'), 10), amount = Number(v('fx_ra'));
+    const id = v('fx_rid').toUpperCase();
+    const m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_rn'), 10);
+    const amount = Number(v('fx_ra'));
     const method = v('fx_rm') === 'bank' ? 'bank' : 'cash';
-    if (!(count >= 1) || !(amount > 0)) return say('Enter the number of months or years and the amount.');
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter the number of months or years and the amount.');
+    }
+
     try {
       await addDoc(collection(db, 'dues'), {
-        uid: m.uid || m._id, mid: m._id, memberId: m.id, name: m.name, village: m.village || '',
-        plan: plan, count: count, months: count * (plan === 'yearly' ? 12 : 1), amount: amount,
-        ref: v('fx_rr'), receipt: '', status: method === 'bank' ? 'pending' : 'confirmed',
-        method: method, by: 'admin', date: fxToday(), at: serverTimestamp()
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_rr'),
+        receipt: '',
+        status: method === 'bank' ? 'pending' : 'confirmed',
+        method: method,
+        by: 'admin',
+        date: fxToday(),
+        at: serverTimestamp()
       });
-      await fxRecalcFinance(); await reload(); say(method === 'bank' ? 'Saved. It counts once its bank alert is matched.' : 'Payment recorded for ' + m.id + '.');
-    } catch (e) { say(e.message); }
+
+      await fxRecalcFinance();
+      await reload();
+      say(method === 'bank'
+        ? 'Saved. It counts once its bank alert is matched.'
+        : 'Payment recorded for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
   }
 
+  // --- Keep totals up to date when a dues payment is confirmed or rejected
   const _reviewFin = window.fxReview;
-  window.fxReview = async function (id, status) { await _reviewFin(id, status); await fxRecalcFinance(); await reload(); };
 
+  window.fxReview = async function (id, status) {
+    await _reviewFin(id, status);
+    await fxRecalcFinance();
+    await reload();
+  };
+
+  // --- Member: receipt image for one confirmed payment
   function fxDownloadReceipt(id) {
     const p = (S.fxMine || []).filter(function (x) { return x._id === id; })[0];
-    if (!p) return say('Receipt not found.');
-    const rows = [['Receipt no.', 'UZR-' + id.slice(-6).toUpperCase()], ['Name', p.name || ''], ['Member ID', p.memberId || ''], ['Amount', naira(p.amount)], ['Covers', p.count + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's')], ['Reference', p.ref || '-'], ['Date', p.date || ''], ['Status', 'Confirmed']];
-    const c = document.createElement('canvas'); c.width = 800; c.height = 560;
+
+    if (!p) {
+      return say('Receipt not found.');
+    }
+
+    const rows = [
+      ['Receipt no.', 'UZR-' + id.slice(-6).toUpperCase()],
+      ['Name', p.name || ''],
+      ['Member ID', p.memberId || ''],
+      ['Amount', naira(p.amount)],
+      ['Covers', p.count + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's')],
+      ['Reference', p.ref || '-'],
+      ['Date', p.date || ''],
+      ['Status', 'Confirmed']
+    ];
+
+    const c = document.createElement('canvas');
+
+    c.width = 800;
+    c.height = 560;
+
     const x = c.getContext('2d');
+
     const draw = function (logo) {
-      x.fillStyle = '#ffffff'; x.fillRect(0, 0, 800, 560);
-      x.fillStyle = '#0d4a1a'; x.fillRect(0, 0, 800, 120);
-      if (logo) { const k = Math.min(90 / logo.width, 90 / logo.height); x.drawImage(logo, 30, 15, logo.width * k, logo.height * k); }
-      x.fillStyle = '#7ddc1f'; x.font = 'bold 40px sans-serif'; x.fillText('UZAIRUE', logo ? 140 : 30, 75);
-      x.fillStyle = '#0d4a1a'; x.font = 'bold 30px sans-serif'; x.fillText('PAYMENT RECEIPT', 30, 170);
+      x.fillStyle = '#ffffff';
+      x.fillRect(0, 0, 800, 560);
+      x.fillStyle = '#0d4a1a';
+      x.fillRect(0, 0, 800, 120);
+
+      if (logo) {
+        const k = Math.min(90 / logo.width, 90 / logo.height);
+
+        x.drawImage(logo, 30, 15, logo.width * k, logo.height * k);
+      }
+
+      x.fillStyle = '#7ddc1f';
+      x.font = 'bold 40px sans-serif';
+      x.fillText('UZAIRUE', logo ? 140 : 30, 75);
+
+      x.fillStyle = '#0d4a1a';
+      x.font = 'bold 30px sans-serif';
+      x.fillText('PAYMENT RECEIPT', 30, 170);
+
       rows.forEach(function (r, i) {
         const y = 230 + i * 40;
-        x.fillStyle = '#5a6b82'; x.font = '20px sans-serif'; x.fillText(r[0], 30, y);
-        x.fillStyle = '#0f1b2d'; x.font = 'bold 22px sans-serif'; x.fillText(String(r[1]), 260, y);
+
+        x.fillStyle = '#5a6b82';
+        x.font = '20px sans-serif';
+        x.fillText(r[0], 30, y);
+        x.fillStyle = '#0f1b2d';
+        x.font = 'bold 22px sans-serif';
+        x.fillText(String(r[1]), 260, y);
       });
-      x.fillStyle = '#5a6b82'; x.font = '16px sans-serif'; x.fillText('Thank you for supporting our community.', 30, 540);
+
+      x.fillStyle = '#5a6b82';
+      x.font = '16px sans-serif';
+      x.fillText('Thank you for supporting our community.', 30, 540);
+
       const a = document.createElement('a');
-      a.href = c.toDataURL('image/png'); a.download = 'receipt-' + (p.memberId || 'uzairue') + '-' + id.slice(-6) + '.png'; a.click();
+
+      a.href = c.toDataURL('image/png');
+      a.download = 'receipt-' + (p.memberId || 'uzairue') + '-' + id.slice(-6) + '.png';
+      a.click();
     };
-    if (S.site && S.site.logo) { const img = new Image(); img.onload = function () { draw(img); }; img.onerror = function () { draw(null); }; img.src = S.site.logo; }
-    else draw(null);
+
+    if (S.site && S.site.logo) {
+      const img = new Image();
+
+      img.onload = function () { draw(img); };
+      img.onerror = function () { draw(null); };
+      img.src = S.site.logo;
+    } else {
+      draw(null);
+    }
   }
 
+  // --- Lists of alerts and expenses (shared by members and admins)
   function fxAlertsListHtml() {
-    if (!S.fxAlerts.length) return '<div class="card mute">No bank alerts yet.</div>';
+    if (!S.fxAlerts.length) {
+      return '<div class="card mute">No bank alerts yet.</div>';
+    }
+
     return '<div class="grid">' + S.fxAlerts.map(function (a) {
-      return '<div class="card"><div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div><span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span></div>';
+      return '<div class="card">'
+        + '<div class="big">' + naira(a.amount) + '</div>'
+        + '<h3>' + esc(a.sender) + '</h3>'
+        + '<div class="mute">' + esc(a.date) + '</div>'        
+        + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
+        + '</div>';
     }).join('') + '</div>';
   }
 
   function fxExpenseListHtml(admin) {
-    if (!S.fxExp.length) return '<div class="card mute">No expenses yet.</div>';
+    if (!S.fxExp.length) {
+      return '<div class="card mute">No expenses yet.</div>';
+    }
+
     return '<div class="grid">' + S.fxExp.map(function (e) {
-      return '<div class="card">' + (imgOk(e.receipt) ? '<img class="thumb" src="' + esc(e.receipt) + '" alt="Receipt">' : '') + '<div class="big">' + naira(e.amount) + '</div><h3>' + esc(e.purpose) + '</h3><div class="mute">' + esc(e.date) + ' · Received by ' + esc(e.receivedName || '') + ' (' + esc(e.receivedBy || '') + ')</div>' + (admin ? '<div class="row"><button class="d" onclick="fxDelExpense(\'' + e._id + '\')">Delete</button></div>' : '') + '</div>';
+      return '<div class="card">'
+        + (imgOk(e.receipt) ? '<img class="thumb" src="' + esc(e.receipt) + '" alt="Receipt">' : '')
+        + '<div class="big">' + naira(e.amount) + '</div>'
+        + '<h3>' + esc(e.purpose) + '</h3>'
+        + '<div class="mute">' + esc(e.date) + ' · Received by ' + esc(e.receivedName || '') + ' (' + esc(e.receivedBy || '') + ')</div>'
+        + (admin ? '<div class="row"><button class="d" onclick="fxDelExpense(\'' + e._id + '\')">Delete</button></div>' : '')
+        + '</div>';
     }).join('') + '</div>';
   }
 
+  // --- Member: the Finance page
   function fxFinancePageHtml() {
-    if (!S.user || !S.user.emailVerified) return '<div class="card">Verify your email to see the finances.</div>';
+    if (!S.user || !S.user.emailVerified) {
+      return '<div class="card">Verify your email to see the finances.</div>';
+    }
+
     const f = S.fin || {};
-    const cards = [['Donations', naira(f.donations)], ['Projects', naira(f.projects)], ['Dues', naira(f.dues)], ['Bank alerts', naira(f.alerts)], ['Expenses', naira(f.expenses)]].map(function (a) {
+    const cards = [
+      ['Donations', naira(f.donations)],
+      ['Projects', naira(f.projects)],
+      ['Dues', naira(f.dues)],
+      ['Bank alerts', naira(f.alerts)],
+      ['Expenses', naira(f.expenses)]
+    ].map(function (a) {
       return '<div class="card"><div class="mute">' + a[0] + '</div><div class="big">' + a[1] + '</div></div>';
     }).join('');
-    return '<h2>Finance</h2><div class="card"><div class="mute">Community balance</div><div class="fxBig">' + naira(f.balance) + '</div><p class="mute">Money received minus expenses.</p></div><div class="grid" style="margin-top:14px">' + cards + '</div><h2>Bank alerts</h2>' + fxAlertsListHtml() + '<h2>Expenses</h2>' + fxExpenseListHtml(false);
+
+    return '<h2>Finance</h2>'
+      + '<div class="card"><div class="mute">Community balance</div>'
+      + '<div class="fxBig">' + naira(f.balance) + '</div>'
+      + '<p class="mute">Money received minus expenses.</p></div>'
+      + '<div class="grid" style="margin-top:14px">' + cards + '</div>'
+      + '<h2>Bank alerts</h2>' + fxAlertsListHtml()
+      + '<h2>Expenses</h2>' + fxExpenseListHtml(false);
   }
 
-  // --- Helper to render the Alert Cards Grid (Now supports Search filtering)
-  function fxAlertCardsHtml() {
-    const q = String(S.fxAlertQ || '').toLowerCase();
-    const filtered = S.fxAlerts.filter(function(a) {
-      if (!q) return true;
-      return String(a.date).toLowerCase().includes(q) || String(a.sender).toLowerCase().includes(q) || String(a.amount).includes(q);
+  // --- Admin: the Finance section (paste, match, cash, expenses, totals)
+  function fxFinanceAdmin() {
+    const waiting = [];
+
+    S.fxDon.forEach(function (d) {
+      if (d.status === 'waiting') {
+        waiting.push({ key: 'donation:' + d._id, label: 'Donation ' + naira(d.amount) + ' · ' + (d.donor || '') + ' · ' + (d.project || '') });
+      }
     });
 
-    const waiting = [];
-    S.fxDon.forEach(function (d) { if (d.status === 'waiting') waiting.push({ key: 'donation:' + d._id, label: 'Donation ' + naira(d.amount) + ' · ' + (d.donor || '') + ' · ' + (d.project || '') }); });
-    (S.fxAll || []).forEach(function (p) { if (p.status === 'pending') waiting.push({ key: 'dues:' + p._id, label: 'Dues ' + naira(p.amount) + ' · ' + (p.name || '') + ' · ' + (p.memberId || '') }); });
-    const opts = waiting.map(function (w) { return '<option value="' + esc(w.key) + '">' + esc(w.label) + '</option>'; }).join('');
+    (S.fxAll || []).forEach(function (p) {
+      if (p.status === 'pending') {
+        waiting.push({ key: 'dues:' + p._id, label: 'Dues ' + naira(p.amount) + ' · ' + (p.name || '') + ' · ' + (p.memberId || '') });
+      }
+    });
 
-    const alertCards = filtered.map(function (a) {
-      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute" style="margin-bottom:8px">' + esc(a.date) + '</div>';
-      if (a.matchedTo) return '<div class="card">' + head + '<span class="tag a" style="margin-bottom:8px">Matched</span><div class="row"><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div></div>';
-      
-      return '<div class="card">' + head + 
-        '<label>Match to a waiting payment</label>' +
-        '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>' +
-        '<div class="row" style="gap:8px"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>' +
-        '</div>';
-    }).join('') || '<div class="card mute">No matching alerts found.</div>';
-    
-    return '<div class="grid">' + alertCards + '</div>';
-  }
+    const opts = waiting.map(function (w) {
+      return '<option value="' + esc(w.key) + '">' + esc(w.label) + '</option>';
+    }).join('');
 
-  function fxRefreshAlerts() {
-    const box = $('fx_alert_list');
-    if (box) box.innerHTML = fxAlertCardsHtml();
-  }
+    const alertCards = S.fxAlerts.map(function (a) {
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div>';
 
-  function fxFinanceAdmin() {
-    const pendingCards = (S.fxAll || []).filter(function (p) { return p.status === 'pending'; }).map(function (p) {
-      return '<div class="card"><div class="big">' + naira(p.amount) + '</div><h3>' + esc(p.name) + '</h3><div class="mute">' + esc(p.memberId) + ' · ' + esc(p.date || '') + '</div><div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
+      if (a.matchedTo) {
+        return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
+      }
+
+      return '<div class="card">' + head
+        + '<label>Match to a waiting payment</label>'
+        + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
+        + '<div class="row"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button></div>'
+        + '</div>';
+    }).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
+
+    const pendingCards = (S.fxAll || []).filter(function (p) {
+      return p.status === 'pending';
+    }).map(function (p) {
+      return '<div class="card"><div class="big">' + naira(p.amount) + '</div><h3>' + esc(p.name) + '</h3>'
+        + '<div class="mute">' + esc(p.memberId) + ' · ' + esc(p.date || '') + '</div>'
+        + '<div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
     }).join('') || '<div class="card mute">No member payments waiting.</div>';
 
-    let pasteBlock = '<div class="card"><h3>Paste a bank alert</h3><p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p><textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea><button class="p" onclick="fxParseAlertDraft()">Read alert</button>';
+    // Bank alert: paste → read → confirm → save
+    let pasteBlock = '<div class="card"><h3>Paste a bank alert</h3>'
+      + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
+      + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
+      + '<button class="p" onclick="fxParseAlertDraft()">Read alert</button>';
+
     if (S.fxDraftParsed) {
       const w = (S.fxDraftParsed.warnings || []);
-      pasteBlock += '<div class="card" style="margin-top:14px;border-color:var(--acc)"><h3>Check the details</h3>' + (w.length ? '<div class="msg">' + esc(w.join(' ')) + '</div>' : '<p class="mute">Looks good. Fix any field that is wrong, then tap Save alert.</p>') +
-        '<label>Amount (₦)</label><input id="fxp_amount" type="number" value="' + esc(S.fxDraftParsed.amount || '') + '">' +
-        '<label>Date</label><input id="fxp_date" type="date" value="' + esc(S.fxDraftParsed.date || '') + '">' +
-        '<label>Sender</label><input id="fxp_sender" value="' + esc(S.fxDraftParsed.sender || '') + '">' +
-        '<label>Narration (from the pasted text)</label><input readonly value="' + esc(S.fxDraftParsed.narration || '') + '">' +
-        '<div class="row"><button class="p" onclick="fxConfirmAlert()">Save alert</button><button onclick="fxCancelAlert()">Cancel</button></div></div>';
+      pasteBlock += '<div class="card" style="margin-top:14px;border-color:var(--acc)">'
+        + '<h3>Check the details</h3>'
+        + (w.length
+            ? '<div class="msg">' + esc(w.join(' ')) + '</div>'
+            : '<p class="mute">Looks good. Fix any field that is wrong, then tap Save alert.</p>')
+        + '<label>Amount (₦)</label>'
+        + '<input id="fxp_amount" type="number" value="' + esc(S.fxDraftParsed.amount || '') + '">'
+        + '<label>Date</label>'
+        + '<input id="fxp_date" type="date" value="' + esc(S.fxDraftParsed.date || '') + '">'
+        + '<label>Sender</label>'
+        + '<input id="fxp_sender" value="' + esc(S.fxDraftParsed.sender || '') + '">'
+        + '<label>Narration (from the pasted text)</label>'
+        + '<input readonly value="' + esc(S.fxDraftParsed.narration || '') + '">'
+        + '<div class="row">'
+        + '<button class="p" onclick="fxConfirmAlert()">Save alert</button>'
+        + '<button onclick="fxCancelAlert()">Cancel</button>'
+        + '</div></div>';
     }
+
     pasteBlock += '</div>';
 
-    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div><h2>Finance</h2>' + 
-      pasteBlock + 
-      '<h2>Bank alerts</h2>' +
-      '<input placeholder="Search alerts by date, sender, or amount" value="' + esc(S.fxAlertQ) + '" oninput="S.fxAlertQ=this.value;fxRefreshAlerts()" style="margin-bottom:14px">' +
-      '<div id="fx_alert_list">' + fxAlertCardsHtml() + '</div>' +
-      '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>' +
-      '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>' +
-      '<label>Date</label><input id="fxe_date" type="date" value="' + fxToday() + '">' +
-      '<label>Amount (₦)</label><input id="fxe_amt" type="number">' +
-      '<label>Purpose</label><input id="fxe_purpose">' +
-      '<label>Received by (member ID)</label><input id="fxe_who" placeholder="e.g. UCA-0002" autocapitalize="characters">' +
-      '<label>Receipt photo (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'exp\',800)"><img id="pv_exp" class="pv" style="display:none">' +
-      '<button class="p" onclick="fxSaveExpense()">Save expense</button></div>' +
-      '<h2>Expenses</h2>' + fxExpenseListHtml(true) +
-      '<div class="card" style="margin-top:14px"><h3>Totals</h3><p class="mute">Totals update automatically. Use this if they look out of date.</p><button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button></div>';
+    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
+      + '<h2>Finance</h2>'
+      + pasteBlock
+      + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
+      + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
+      + '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>'
+      + '<label>Date</label><input id="fxe_date" type="date" value="' + fxToday() + '">'
+      + '<label>Amount (₦)</label><input id="fxe_amt" type="number">'
+      + '<label>Purpose</label><input id="fxe_purpose">'
+      + '<label>Received by (member ID)</label><input id="fxe_who" placeholder="e.g. UCA-0002" autocapitalize="characters">'
+      + '<label>Receipt photo (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'exp\',800)"><img id="pv_exp" class="pv" style="display:none">'
+      + '<button class="p" onclick="fxSaveExpense()">Save expense</button></div>'
+      + '<h2>Expenses</h2>' + fxExpenseListHtml(true)
+      + '<div class="card" style="margin-top:14px"><h3>Totals</h3>'
+      + '<p class="mute">Totals update automatically. Use this if they look out of date.</p>'
+      + '<button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button></div>';
   }
 
+  // --- Render: Finance page, and the total and receipts on the member's Dues page
   const _renderFin = window.render;
+
   window.render = function () {
-    if (S.ready && S.view === 'finance' && (!S.user || !S.user.emailVerified)) S.view = S.user ? 'verify' : 'home';
+    if (S.ready && S.view === 'finance' && (!S.user || !S.user.emailVerified)) {
+      S.view = S.user ? 'verify' : 'home';
+    }
+
     _renderFin();
-    const app = $('app'); if (!app) return;
-    if (S.view === 'finance') app.innerHTML = fxFinancePageHtml();
+
+    const app = $('app');
+
+    if (!app) {
+      return;
+    }
+
+    if (S.view === 'finance') {
+      app.innerHTML = fxFinancePageHtml();
+    }
+
     if (S.view === 'dues' && S.user && S.user.emailVerified) {
       const paid = (S.fxMine || []).filter(function (p) { return p.status === 'confirmed'; });
       const total = paid.reduce(function (s, p) { return s + (Number(p.amount) || 0); }, 0);
       const receipts = paid.map(function (p) {
-        return '<div class="card"><div class="big">' + naira(p.amount) + '</div><div class="mute">' + esc(p.date || '') + (p.ref ? ' · ' + esc(p.ref) : '') + '</div><div class="row"><button onclick="fxDownloadReceipt(\'' + p._id + '\')">Download receipt</button></div></div>';
+        return '<div class="card"><div class="big">' + naira(p.amount) + '</div>'
+          + '<div class="mute">' + esc(p.date || '') + (p.ref ? ' · ' + esc(p.ref) : '') + '</div>'
+          + '<div class="row"><button onclick="fxDownloadReceipt(\'' + p._id + '\')">Download receipt</button></div></div>';
       }).join('') || '<div class="card mute">No confirmed payments yet.</div>';
-      app.insertAdjacentHTML('beforeend', '<h2>Your total paid</h2><div class="card"><div class="big">' + naira(total) + '</div></div><h2>Receipts</h2><div class="grid">' + receipts + '</div>');
+
+      app.insertAdjacentHTML('beforeend',
+        '<h2>Your total paid</h2><div class="card"><div class="big">' + naira(total) + '</div></div>'
+        + '<h2>Receipts</h2><div class="grid">' + receipts + '</div>');
     }
   };
 
+  // --- Menu: "Finance" for logged-in members
   const _navFin = window.nav;
+
   window.nav = function () {
     _navFin();
-    const nav = document.getElementById('nav'); if (!nav || !S.user || !S.user.emailVerified) return;
+
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
     const btn = document.createElement('button');
-    btn.textContent = 'Finance'; btn.setAttribute('onclick', "go('finance')");
-    if (S.view === 'finance') btn.classList.add('on');
-    const out = Array.prototype.slice.call(nav.children).filter(function (b) { return (b.getAttribute('onclick') || '').indexOf('out()') >= 0; })[0];
-    if (out) nav.insertBefore(btn, out); else nav.appendChild(btn);
+
+    btn.textContent = 'Finance';
+    btn.setAttribute('onclick', "go('finance')");
+
+    if (S.view === 'finance') {
+      btn.classList.add('on');
+    }
+
+    const out = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (out) {
+      nav.insertBefore(btn, out);
+    } else {
+      nav.appendChild(btn);
+    }
   };
 
+  // --- Admin: the Finance tile, the Paid-by choice on donations and dues, and the Finance section
   const _adminFin = window.admin;
+
   window.admin = function () {
-    if (isAdmin() && S.tab === 'fxfin') return fxFinanceAdmin();
-    let h = _adminFin();
-    if (!isAdmin()) return h;
-    if (S.tab === 'dash') {
-      const tile = '<div class="card tile" onclick="S.tab=\'fxfin\';render();window.scrollTo(0,0)"><div class="ic">🧾</div><h3>Finance</h3><div class="mute">Bank alerts, cash, expenses and balance</div></div>';
-      const i = h.lastIndexOf('</div>'); h = h.slice(0, i) + tile + h.slice(i);
+    if (isAdmin() && S.tab === 'fxfin') {
+      return fxFinanceAdmin();
     }
-    if (S.tab === 'donations') h = h.replace('<button class="p" onclick="addDon()">Record</button>', '<label>Paid by</label><select id="dm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select><button class="p" onclick="addDon()">Record</button>');
-    if (S.tab === 'fxdues') h = h.replace('<button class="p" onclick="fxAdminRecord()">Record payment</button>', '<label>Paid by</label><select id="fx_rm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select><button class="p" onclick="fxAdminRecord()">Record payment</button>');
+
+    let h = _adminFin();
+
+    if (!isAdmin()) {
+      return h;
+    }
+
+    if (S.tab === 'dash') {
+      const tile = '<div class="card tile" onclick="S.tab=\'fxfin\';render();window.scrollTo(0,0)">'
+        + '<div class="ic">🧾</div>'
+        + '<h3>Finance</h3>'
+        + '<div class="mute">Bank alerts, cash, expenses and balance</div>'
+        + '</div>';
+      const i = h.lastIndexOf('</div>');
+
+      h = h.slice(0, i) + tile + h.slice(i);
+    }
+
+    if (S.tab === 'donations') {
+      h = h.replace(
+        '<button class="p" onclick="addDon()">Record</button>',
+        '<label>Paid by</label><select id="dm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select>'
+          + '<button class="p" onclick="addDon()">Record</button>'
+      );
+    }
+
+    if (S.tab === 'fxdues') {
+      h = h.replace(
+        '<button class="p" onclick="fxAdminRecord()">Record payment</button>',
+        '<label>Paid by</label><select id="fx_rm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select>'
+          + '<button class="p" onclick="fxAdminRecord()">Record payment</button>'
+      );
+    }
+    
     return h;
   };
 
   Object.assign(window, {
-    addDon: fxAddDonation, fxAdminRecord: fxRecordDues, fxParseAlertDraft: fxParseAlertDraft, fxConfirmAlert: fxConfirmAlert, fxCancelAlert: fxCancelAlert,
-    fxMatchAlert: fxMatchAlert, fxDelAlert: fxDelAlert, fxConfirmCash: fxConfirmCash, fxSaveExpense: fxSaveExpense, fxDelExpense: fxDelExpense,
-    fxRecalcNow: fxRecalcNow, fxDownloadReceipt: fxDownloadReceipt, fxRefreshAlerts: fxRefreshAlerts
+    addDon: fxAddDonation,
+    fxAdminRecord: fxRecordDues,
+    fxParseAlertDraft: fxParseAlertDraft,
+    fxConfirmAlert: fxConfirmAlert,
+    fxCancelAlert: fxCancelAlert,
+    fxMatchAlert: fxMatchAlert,
+    fxConfirmCash: fxConfirmCash,
+    fxSaveExpense: fxSaveExpense,
+    fxDelExpense: fxDelExpense,
+    fxRecalcNow: fxRecalcNow,
+    fxDownloadReceipt: fxDownloadReceipt
   });
 
   [
-    ['addDon', 'Recording...'], ['fxAdminRecord', 'Recording...'], ['fxConfirmAlert', 'Saving...'], ['fxMatchAlert', 'Matching...'],
-    ['fxDelAlert', 'Deleting...'], ['fxConfirmCash', 'Saving...'], ['fxSaveExpense', 'Saving...'], ['fxDelExpense', 'Deleting...'], ['fxRecalcNow', 'Updating...']
-  ].forEach(function (pair) { window[pair[0]] = busyWrap(window[pair[0]], pair[1]); });
+    ['addDon', 'Recording...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxConfirmAlert', 'Saving...'],
+    ['fxMatchAlert', 'Matching...'],
+    ['fxConfirmCash', 'Saving...'],
+    ['fxSaveExpense', 'Saving...'],
+    ['fxDelExpense', 'Deleting...'],
+    ['fxRecalcNow', 'Updating...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
 
+
+  
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
+  // What it does: makes the new functions available to the buttons, gives
+  // the saving buttons their "Saving..." status, then refreshes the page
+  // so the new versions take effect straight away.
   // ------------------------------------------------------------
   Object.assign(window, { fxPick: fxPick, fxAddNews: fxAddNews, fxAddProject: fxAddProject, fxEditAcct: fxEditAcct, fxSaveLogo: fxSaveLogo, fxSaveDonate: fxSaveDonate, fxDonate: fxDonate, fxCloseDonate: fxCloseDonate, fxCopy: fxCopy, fxScan: fxScan, fxSaveAbout: fxSaveAbout });
   [['fxAddNews', 'Publishing...'], ['fxAddProject', 'Creating...'], ['fxSaveLogo', 'Saving...'], ['fxSaveDonate', 'Saving...'], ['fxEditAcct', 'Saving...'], ['fxSaveAbout', 'Saving...']].forEach(function (a) { window[a[0]] = busyWrap(window[a[0]], a[1]); });
