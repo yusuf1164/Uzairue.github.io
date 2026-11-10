@@ -2814,7 +2814,7 @@ const date = dm ? fxParseDate(dm[1]) : '';
     }).join('');
 
     const alertCards = S.fxAlerts.map(function (a) {
-      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>';
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div>';
 
       if (a.matchedTo) {
         return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
