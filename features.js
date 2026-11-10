@@ -2191,6 +2191,8 @@
   S.fxAlerts = S.fxAlerts || [];
   S.fxExp = S.fxExp || [];
   S.fxDon = S.fxDon || [];
+  S.fxDraft = S.fxDraft || '';
+  S.fxDraftParsed = S.fxDraftParsed || null;
 
   // --- Newest first, by date text (YYYY-MM-DD)
   function fxNewestFirst(a, b) {
@@ -2283,67 +2285,141 @@
     }
   }
 
-  // --- Reads a credit alert. Keeps only the fields we need and masks long numbers.
+  // --- Pads a number to two digits (used by date parsing)
+  function fxPad2(n) {
+    n = String(n);
+    return n.length < 2 ? '0' + n : n;
+  }
+
+  // --- Reads any common date format → "YYYY-MM-DD" (or '' if unreadable)
+  function fxParseDate(s) {
+    s = String(s || '').trim();
+    if (!s) return '';
+
+    // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
+    let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
+    if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
+
+    // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
+    m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
+    if (m) {
+      let y = m[3];
+      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+      return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
+    }
+
+    // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
+    m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
+    if (m) {
+      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
+      if (mo >= 0) {
+        let y = m[3];
+        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
+      }
+    }
+
+    // Nov 12, 2026 / Nov 12 2026
+    m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
+    if (m) {
+      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
+      if (mo >= 0) {
+        let y = m[3];
+        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
+      }
+    }
+
+    return '';
+  }
+
+  // --- Reads a credit alert (any bank / fintech) and returns pre-filled fields.
+  //     Returns { error } for a debit alert; otherwise returns
+  //     { amount, date, sender, narration, warnings[] } so the admin
+  //     can fix any blank or wrong field before saving.
   function fxParseAlert(text) {
-    const t = String(text || '');
-    const grab = function (re) {
-      const m = t.match(re);
+    const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+    const warnings = [];
 
-      return m ? m[1].trim() : '';
-    };
+    const credit = /\b(credit|credited|received|CR)\b/i.test(t);
+    const debit  = /\b(debit|debited|DR)\b/i.test(t);
 
-    const txn = grab(/Txn:\s*([A-Za-z]+)/i).toLowerCase();
-
-    if (['debit', 'dr'].indexOf(txn) >= 0) {
+    if (debit && !credit) {
       return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
     }
-
-    if (['credit', 'cr'].indexOf(txn) < 0) {
-      return { error: 'Could not read the transaction type (Credit or CR).' };
+    if (!credit) {
+      warnings.push('No credit keyword found — check this is a credit alert.');
     }
 
-    const amount = Number(grab(/Amt:\s*([^\n]+)/i).replace(/[^0-9.]/g, ''));
-
+    const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+    const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
     if (!(amount > 0)) {
-      return { error: 'Could not find the amount in this alert.' };
+      warnings.push('Amount not found — enter it manually.');
     }
 
-    const dateRaw = grab(/Date:\s*(\d{2}-\d{2}-\d{4})/i);
-
-    if (!dateRaw) {
-      return { error: 'Could not find the date in this alert.' };
+    const dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+    const date = dm ? fxParseDate(dm[1]) : '';
+    if (!date) {
+      warnings.push('Date not found — enter it manually.');
     }
 
-    const parts = dateRaw.split('-');
-    const des = grab(/Des:\s*([^\n]+)/i);
-
-    if (!des) {
-      return { error: 'Could not find the narration in this alert.' };
+    const f = t.match(/\bfrom\s+([A-Za-z][A-Za-z .'\-]{1,60})/i);
+    const sender = f ? f[1].trim().toUpperCase() : '';
+    if (!sender) {
+      warnings.push('Sender not found — enter it manually.');
     }
-
-    const nameMatch = des.match(/^([A-Za-z][A-Za-z .'-]*?)\s*(?=\d|$)/);
 
     return {
       amount: amount,
-      date: parts[2] + '-' + parts[1] + '-' + parts[0],
-      sender: (nameMatch ? nameMatch[1] : des).trim().toUpperCase(),
-      narration: des.replace(/\d{4,}/g, '****').trim()
+      date: date,
+      sender: sender,
+      narration: t.replace(/\d{4,}/g, '****'),
+      warnings: warnings
     };
   }
 
-  // --- Admin: save a pasted alert (the pasted text itself is never stored)
-  async function fxSaveAlert() {
+  // --- Admin: step 1 — read the pasted alert and show the confirm fields
+  function fxParseAlertDraft() {
     const raw = $('fxp_text') ? $('fxp_text').value : '';
+
+    if (!raw.trim()) {
+      return say('Paste a bank alert first.');
+    }
 
     S.fxDraft = raw;
 
     const r = fxParseAlert(raw);
 
     if (r.error) {
+      S.fxDraftParsed = null;
       return say(r.error);
     }
 
-    const key = [r.date, r.amount, r.sender, r.narration].join('|');
+    S.fxDraftParsed = r;
+
+    if (r.warnings && r.warnings.length) {
+      S.msg = r.warnings.join(' ');
+    } else {
+      S.msg = 'Looks good — tap Save alert.';
+    }
+
+    render();
+  }
+
+  // --- Admin: step 2 — save the (possibly corrected) values
+  async function fxConfirmAlert() {
+    const amount = Number(v('fxp_amount'));
+    const date = v('fxp_date');
+    const sender = v('fxp_sender');
+    const narration = S.fxDraftParsed
+      ? S.fxDraftParsed.narration
+      : (S.fxDraft || '').replace(/\d{4,}/g, '****');
+
+    if (!(amount > 0)) return say('Enter the amount.');
+    if (!date)        return say('Enter the date.');
+    if (!sender)      return say('Enter the sender.');
+
+    const key = [date, amount, sender, narration].join('|');
 
     if (S.fxAlerts.some(function (a) { return a.key === key; })) {
       return say('This alert is already saved, so it was not added twice.');
@@ -2351,21 +2427,29 @@
 
     try {
       await addDoc(collection(db, 'alerts'), {
-        date: r.date,
-        amount: r.amount,
-        sender: r.sender,
-        narration: r.narration,
+        date: date,
+        amount: amount,
+        sender: sender,
+        narration: narration,
         key: key,
         matchedTo: '',
         at: serverTimestamp()
       });
       S.fxDraft = '';
+      S.fxDraftParsed = null;
       await fxRecalcFinance();
       await reload();
       say('Bank alert saved.');
     } catch (e) {
       say(e.message);
     }
+  }
+
+  // --- Admin: cancel the confirm step
+  function fxCancelAlert() {
+    S.fxDraft = '';
+    S.fxDraftParsed = null;
+    render();
   }
 
   // --- Admin: match an alert to a waiting bank donation or a pending dues payment
@@ -2737,12 +2821,38 @@
         + '<div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
     }).join('') || '<div class="card mute">No member payments waiting.</div>';
 
-    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
-      + '<h2>Finance</h2>'
-      + '<div class="card"><h3>Paste a bank alert</h3>'
+    // Bank alert: paste → read → confirm → save
+    let pasteBlock = '<div class="card"><h3>Paste a bank alert</h3>'
       + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
       + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
-      + '<button class="p" onclick="fxSaveAlert()">Save bank alert</button></div>'
+      + '<button class="p" onclick="fxParseAlertDraft()">Read alert</button>';
+
+    if (S.fxDraftParsed) {
+      const w = (S.fxDraftParsed.warnings || []);
+      pasteBlock += '<div class="card" style="margin-top:14px;border-color:var(--acc)">'
+        + '<h3>Check the details</h3>'
+        + (w.length
+            ? '<div class="msg">' + esc(w.join(' ')) + '</div>'
+            : '<p class="mute">Looks good. Fix any field that is wrong, then tap Save alert.</p>')
+        + '<label>Amount (₦)</label>'
+        + '<input id="fxp_amount" type="number" value="' + esc(S.fxDraftParsed.amount || '') + '">'
+        + '<label>Date</label>'
+        + '<input id="fxp_date" type="date" value="' + esc(S.fxDraftParsed.date || '') + '">'
+        + '<label>Sender</label>'
+        + '<input id="fxp_sender" value="' + esc(S.fxDraftParsed.sender || '') + '">'
+        + '<label>Narration (from the pasted text)</label>'
+        + '<input readonly value="' + esc(S.fxDraftParsed.narration || '') + '">'
+        + '<div class="row">'
+        + '<button class="p" onclick="fxConfirmAlert()">Save alert</button>'
+        + '<button onclick="fxCancelAlert()">Cancel</button>'
+        + '</div></div>';
+    }
+
+    pasteBlock += '</div>';
+
+    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
+      + '<h2>Finance</h2>'
+      + pasteBlock
       + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
       + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
       + '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>'
@@ -2755,7 +2865,7 @@
       + '<h2>Expenses</h2>' + fxExpenseListHtml(true)
       + '<div class="card" style="margin-top:14px"><h3>Totals</h3>'
       + '<p class="mute">Totals update automatically. Use this if they look out of date.</p>'
-      + '<button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button>';
+      + '<button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button></div>';
   }
 
   // --- Render: Finance page, and the total and receipts on the member's Dues page
@@ -2872,7 +2982,9 @@
   Object.assign(window, {
     addDon: fxAddDonation,
     fxAdminRecord: fxRecordDues,
-    fxSaveAlert: fxSaveAlert,
+    fxParseAlertDraft: fxParseAlertDraft,
+    fxConfirmAlert: fxConfirmAlert,
+    fxCancelAlert: fxCancelAlert,
     fxMatchAlert: fxMatchAlert,
     fxConfirmCash: fxConfirmCash,
     fxSaveExpense: fxSaveExpense,
@@ -2884,7 +2996,7 @@
   [
     ['addDon', 'Recording...'],
     ['fxAdminRecord', 'Recording...'],
-    ['fxSaveAlert', 'Saving...'],
+    ['fxConfirmAlert', 'Saving...'],
     ['fxMatchAlert', 'Matching...'],
     ['fxConfirmCash', 'Saving...'],
     ['fxSaveExpense', 'Saving...'],
