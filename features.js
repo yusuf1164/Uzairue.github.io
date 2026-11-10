@@ -2167,6 +2167,724 @@
     window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
   });
 
+  // ------------------------------------------------------------
+  // FINANCE: BANK ALERTS, CASH, EXPENSES, BALANCE AND RECEIPTS
+  // (paste above the "SECTION: Hook-up and start" part, after the gifts block)
+  // What it does:
+  //   1. Admins paste a credit bank alert. Only the amount, date, sender
+  //      name and masked narration are saved. Debit alerts are refused.
+  //      The same alert cannot be saved twice.
+  //   2. Donations and dues can be Bank or Cash. Cash counts straight
+  //      away. Bank waits until an admin matches it to an alert.
+  //   3. Admins record expenses (date, amount, purpose, member who
+  //      received it, optional receipt photo).
+  //   4. Finance page (everyone, logged in): balance, donations,
+  //      projects, dues, bank alerts and expenses.
+  //      Balance = bank alerts + cash donations + cash dues - expenses.
+  //   5. Each member can download a receipt for each confirmed payment.
+  // Totals are saved in settings/finance, so members see the totals
+  // without seeing other people's names or payments.
+  // Needs the Firebase rules for "alerts" and "expenses".
+  // ------------------------------------------------------------
+
+  S.fin = S.fin || {};
+  S.fxAlerts = S.fxAlerts || [];
+  S.fxExp = S.fxExp || [];
+  S.fxDon = S.fxDon || [];
+
+  // --- Newest first, by date text (YYYY-MM-DD)
+  function fxNewestFirst(a, b) {
+    return String(b.date || '').localeCompare(String(a.date || ''));
+  }
+
+  // --- Loads the public totals, alerts and expenses for logged-in members
+  async function fxLoadFinance() {
+    if (!cfgOk) {
+      return;
+    }
+
+    try {
+      const f = await getDoc(doc(db, 'settings', 'finance'));
+
+      S.fin = f.exists() ? f.data() : {};
+    } catch (e) {
+      S.fin = {};
+    }
+
+    S.fxAlerts = [];
+    S.fxExp = [];
+
+    if (S.user && S.user.emailVerified) {
+      try {
+        S.fxAlerts = (await list('alerts')).sort(fxNewestFirst);
+        S.fxExp = (await list('expenses')).sort(fxNewestFirst);
+      } catch (e) {
+        S.fxAlerts = [];
+        S.fxExp = [];
+      }
+    }
+  }
+
+  const _loadPubFin = window.loadPub;
+
+  window.loadPub = async function () {
+    await _loadPubFin();
+    await fxLoadFinance();
+  };
+
+  // --- Admin: also load all donations (needed for matching)
+  const _loadAdminFin = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminFin();
+    S.fxDon = await list('donations');
+  };
+
+  // --- Adds up every money card and saves the totals in settings/finance
+  async function fxRecalcFinance() {
+    const dons = await list('donations');
+    const dues = await list('dues');
+    const alerts = await list('alerts');
+    const exps = await list('expenses');
+    const projs = await list('projects');
+
+    const sum = function (arr, keep) {
+      return arr.filter(keep).reduce(function (s, x) {
+        return s + (Number(x.amount) || 0);
+      }, 0);
+    };
+
+    const bankIn = sum(alerts, function () { return true; });
+    const cashDon = sum(dons, function (d) { return d.method === 'cash' && d.status === 'confirmed'; });
+    const cashDues = sum(dues, function (p) { return p.method === 'cash' && p.status === 'confirmed'; });
+    const expenses = sum(exps, function () { return true; });
+
+    const totals = {
+      donations: sum(dons, function (d) { return d.status !== 'waiting'; }),
+      dues: sum(dues, function (p) { return p.status === 'confirmed'; }),
+      projects: projs.reduce(function (s, p) { return s + (Number(p.raised) || 0); }, 0),
+      alerts: bankIn,
+      expenses: expenses,
+      balance: bankIn + cashDon + cashDues - expenses
+    };
+
+    await setDoc(doc(db, 'settings', 'finance'), totals);
+    S.fin = totals;
+  }
+
+  // --- Admin: "Recalculate totals" button
+  async function fxRecalcNow() {
+    try {
+      await fxRecalcFinance();
+      await reload();
+      say('Totals updated.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Reads a credit alert. Keeps only the fields we need and masks long numbers.
+  function fxParseAlert(text) {
+    const t = String(text || '');
+    const grab = function (re) {
+      const m = t.match(re);
+
+      return m ? m[1].trim() : '';
+    };
+
+    const txn = grab(/Txn:\s*([A-Za-z]+)/i);
+
+    if (txn.toLowerCase() !== 'credit') {
+      return { error: 'Only credit alerts can be saved. Debit alerts are ignored.' };
+    }
+
+    const amount = Number(grab(/Amt:\s*([^\n]+)/i).replace(/[^0-9.]/g, ''));
+
+    if (!(amount > 0)) {
+      return { error: 'Could not find the amount in this alert.' };
+    }
+
+    const dateRaw = grab(/Date:\s*(\d{2}-\d{2}-\d{4})/i);
+
+    if (!dateRaw) {
+      return { error: 'Could not find the date in this alert.' };
+    }
+
+    const parts = dateRaw.split('-');
+    const des = grab(/Des:\s*([^\n]+)/i);
+
+    if (!des) {
+      return { error: 'Could not find the narration in this alert.' };
+    }
+
+    const nameMatch = des.match(/^([A-Za-z][A-Za-z .'-]*?)\s*(?=\d|$)/);
+
+    return {
+      amount: amount,
+      date: parts[2] + '-' + parts[1] + '-' + parts[0],
+      sender: (nameMatch ? nameMatch[1] : des).trim().toUpperCase(),
+      narration: des.replace(/\d{4,}/g, '****').trim()
+    };
+  }
+
+  // --- Admin: save a pasted alert (the pasted text itself is never stored)
+  async function fxSaveAlert() {
+    const r = fxParseAlert(v('fxp_text'));
+
+    if (r.error) {
+      return say(r.error);
+    }
+
+    const key = [r.date, r.amount, r.sender, r.narration].join('|');
+
+    if (S.fxAlerts.some(function (a) { return a.key === key; })) {
+      return say('This alert is already saved, so it was not added twice.');
+    }
+
+    try {
+      await addDoc(collection(db, 'alerts'), {
+        date: r.date,
+        amount: r.amount,
+        sender: r.sender,
+        narration: r.narration,
+        key: key,
+        matchedTo: '',
+        at: serverTimestamp()
+      });
+      await fxRecalcFinance();
+      await reload();
+      say('Bank alert saved.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: match an alert to a waiting bank donation or a pending dues payment
+  async function fxMatchAlert(alertId) {
+    const box = document.getElementById('fxm_' + alertId);
+    const pick = box ? box.value : '';
+
+    if (!pick) {
+      return say('Choose the payment to match.');
+    }
+
+    const parts = pick.split(':');
+    const kind = parts[0];
+    const id = parts[1];
+
+    try {
+      if (kind === 'donation') {
+        const d = S.fxDon.filter(function (x) { return x._id === id; })[0];
+
+        await updateDoc(doc(db, 'donations', id), { status: 'confirmed', method: 'bank' });
+
+        if (d && d.pid) {
+          await updateDoc(doc(db, 'projects', d.pid), { raised: increment(Number(d.amount) || 0) });
+        }
+      } else {
+        await updateDoc(doc(db, 'dues', id), { status: 'confirmed', method: 'bank' });
+      }
+
+      await updateDoc(doc(db, 'alerts', alertId), { matchedTo: pick });
+      await fxRecalcFinance();
+      await reload();
+      say('Matched.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: confirm a member's pending payment as cash
+  async function fxConfirmCash(id) {
+    try {
+      await updateDoc(doc(db, 'dues', id), { status: 'confirmed', method: 'cash' });
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: record an expense
+  async function fxSaveExpense() {
+    const amount = Number(v('fxe_amt'));
+    const purpose = v('fxe_purpose');
+    const who = v('fxe_who').toUpperCase();
+    const m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === who; })[0];
+
+    if (!(amount > 0) || !purpose) {
+      return say('Enter the amount and the purpose.');
+    }
+
+    if (!m) {
+      return say('Enter the ID of the member who received the money.');
+    }
+
+    try {
+      await addDoc(collection(db, 'expenses'), {
+        date: v('fxe_date') || fxToday(),
+        amount: amount,
+        purpose: purpose,
+        receivedBy: m.id,
+        receivedName: m.name || '',
+        receipt: IMG.exp || '',
+        at: serverTimestamp()
+      });
+      IMG.exp = '';
+      await fxRecalcFinance();
+      await reload();
+      say('Expense recorded.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Admin: delete an expense
+  async function fxDelExpense(id) {
+    if (!confirm('Delete this expense?')) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'expenses', id));
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Donations: Bank waits for a matched alert, Cash counts straight away
+  async function fxAddDonation() {
+    const amount = +v('da');
+    const pid = v('dp');
+    const p = S.proj.filter(function (x) { return x._id === pid; })[0];
+    const method = v('dm') === 'bank' ? 'bank' : 'cash';
+
+    if (!p || !(amount > 0)) {
+      return say('Choose a project and amount.');
+    }
+
+    const status = method === 'bank' ? 'waiting' : 'confirmed';
+
+    try {
+      await addDoc(collection(db, 'donations'), {
+        donor: v('dn') || 'Anonymous',
+        amount: amount,
+        pid: pid,
+        project: p.title,
+        method: method,
+        status: status,
+        at: serverTimestamp()
+      });
+
+      if (status === 'confirmed') {
+        await updateDoc(doc(db, 'projects', pid), { raised: increment(amount) });
+      }
+
+      await fxRecalcFinance();
+      await reload();
+      say(status === 'waiting'
+        ? 'Saved. It will count once its bank alert is matched.'
+        : 'Donation recorded.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Dues recorded by an admin: Bank waits for a matched alert, Cash counts
+  async function fxRecordDues() {
+    const id = v('fx_rid').toUpperCase();
+    const m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const plan = fxPlanOf(m);
+    const count = parseInt(v('fx_rn'), 10);
+    const amount = Number(v('fx_ra'));
+    const method = v('fx_rm') === 'bank' ? 'bank' : 'cash';
+
+    if (!(count >= 1) || !(amount > 0)) {
+      return say('Enter the number of months or years and the amount.');
+    }
+
+    try {
+      await addDoc(collection(db, 'dues'), {
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: count,
+        months: count * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_rr'),
+        receipt: '',
+        status: method === 'bank' ? 'pending' : 'confirmed',
+        method: method,
+        by: 'admin',
+        date: fxToday(),
+        at: serverTimestamp()
+      });
+
+      await fxRecalcFinance();
+      await reload();
+      say(method === 'bank'
+        ? 'Saved. It counts once its bank alert is matched.'
+        : 'Payment recorded for ' + m.id + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Keep totals up to date when a dues payment is confirmed or rejected
+  const _reviewFin = window.fxReview;
+
+  window.fxReview = async function (id, status) {
+    await _reviewFin(id, status);
+    await fxRecalcFinance();
+    await reload();
+  };
+
+  // --- Member: receipt image for one confirmed payment
+  function fxDownloadReceipt(id) {
+    const p = (S.fxMine || []).filter(function (x) { return x._id === id; })[0];
+
+    if (!p) {
+      return say('Receipt not found.');
+    }
+
+    const rows = [
+      ['Receipt no.', 'UZR-' + id.slice(-6).toUpperCase()],
+      ['Name', p.name || ''],
+      ['Member ID', p.memberId || ''],
+      ['Amount', naira(p.amount)],
+      ['Covers', p.count + ' ' + (p.plan === 'yearly' ? 'year' : 'month') + (Number(p.count) === 1 ? '' : 's')],
+      ['Reference', p.ref || '-'],
+      ['Date', p.date || ''],
+      ['Status', 'Confirmed']
+    ];
+
+    const c = document.createElement('canvas');
+
+    c.width = 800;
+    c.height = 560;
+
+    const x = c.getContext('2d');
+
+    const draw = function (logo) {
+      x.fillStyle = '#ffffff';
+      x.fillRect(0, 0, 800, 560);
+      x.fillStyle = '#0d4a1a';
+      x.fillRect(0, 0, 800, 120);
+
+      if (logo) {
+        const k = Math.min(90 / logo.width, 90 / logo.height);
+
+        x.drawImage(logo, 30, 15, logo.width * k, logo.height * k);
+      }
+
+      x.fillStyle = '#7ddc1f';
+      x.font = 'bold 40px sans-serif';
+      x.fillText('UZAIRUE', logo ? 140 : 30, 75);
+
+      x.fillStyle = '#0d4a1a';
+      x.font = 'bold 30px sans-serif';
+      x.fillText('PAYMENT RECEIPT', 30, 170);
+
+      rows.forEach(function (r, i) {
+        const y = 230 + i * 40;
+
+        x.fillStyle = '#5a6b82';
+        x.font = '20px sans-serif';
+        x.fillText(r[0], 30, y);
+        x.fillStyle = '#0f1b2d';
+        x.font = 'bold 22px sans-serif';
+        x.fillText(String(r[1]), 260, y);
+      });
+
+      x.fillStyle = '#5a6b82';
+      x.font = '16px sans-serif';
+      x.fillText('Thank you for supporting our community.', 30, 540);
+
+      const a = document.createElement('a');
+
+      a.href = c.toDataURL('image/png');
+      a.download = 'receipt-' + (p.memberId || 'uzairue') + '-' + id.slice(-6) + '.png';
+      a.click();
+    };
+
+    if (S.site && S.site.logo) {
+      const img = new Image();
+
+      img.onload = function () { draw(img); };
+      img.onerror = function () { draw(null); };
+      img.src = S.site.logo;
+    } else {
+      draw(null);
+    }
+  }
+
+  // --- Lists of alerts and expenses (shared by members and admins)
+  function fxAlertsListHtml() {
+    if (!S.fxAlerts.length) {
+      return '<div class="card mute">No bank alerts yet.</div>';
+    }
+
+    return '<div class="grid">' + S.fxAlerts.map(function (a) {
+      return '<div class="card">'
+        + '<div class="big">' + naira(a.amount) + '</div>'
+        + '<h3>' + esc(a.sender) + '</h3>'
+        + '<div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>'
+        + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
+        + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function fxExpenseListHtml(admin) {
+    if (!S.fxExp.length) {
+      return '<div class="card mute">No expenses yet.</div>';
+    }
+
+    return '<div class="grid">' + S.fxExp.map(function (e) {
+      return '<div class="card">'
+        + (imgOk(e.receipt) ? '<img class="thumb" src="' + esc(e.receipt) + '" alt="Receipt">' : '')
+        + '<div class="big">' + naira(e.amount) + '</div>'
+        + '<h3>' + esc(e.purpose) + '</h3>'
+        + '<div class="mute">' + esc(e.date) + ' · Received by ' + esc(e.receivedName || '') + ' (' + esc(e.receivedBy || '') + ')</div>'
+        + (admin ? '<div class="row"><button class="d" onclick="fxDelExpense(\'' + e._id + '\')">Delete</button></div>' : '')
+        + '</div>';
+    }).join('') + '</div>';
+  }
+
+  // --- Member: the Finance page
+  function fxFinancePageHtml() {
+    if (!S.user || !S.user.emailVerified) {
+      return '<div class="card">Verify your email to see the finances.</div>';
+    }
+
+    const f = S.fin || {};
+    const cards = [
+      ['Donations', naira(f.donations)],
+      ['Projects', naira(f.projects)],
+      ['Dues', naira(f.dues)],
+      ['Bank alerts', naira(f.alerts)],
+      ['Expenses', naira(f.expenses)]
+    ].map(function (a) {
+      return '<div class="card"><div class="mute">' + a[0] + '</div><div class="big">' + a[1] + '</div></div>';
+    }).join('');
+
+    return '<h2>Finance</h2>'
+      + '<div class="card"><div class="mute">Community balance</div>'
+      + '<div class="fxBig">' + naira(f.balance) + '</div>'
+      + '<p class="mute">Money received minus expenses.</p></div>'
+      + '<div class="grid" style="margin-top:14px">' + cards + '</div>'
+      + '<h2>Bank alerts</h2>' + fxAlertsListHtml()
+      + '<h2>Expenses</h2>' + fxExpenseListHtml(false);
+  }
+
+  // --- Admin: the Finance section (paste, match, cash, expenses, totals)
+  function fxFinanceAdmin() {
+    const waiting = [];
+
+    S.fxDon.forEach(function (d) {
+      if (d.status === 'waiting') {
+        waiting.push({ key: 'donation:' + d._id, label: 'Donation ' + naira(d.amount) + ' · ' + (d.donor || '') + ' · ' + (d.project || '') });
+      }
+    });
+
+    (S.fxAll || []).forEach(function (p) {
+      if (p.status === 'pending') {
+        waiting.push({ key: 'dues:' + p._id, label: 'Dues ' + naira(p.amount) + ' · ' + (p.name || '') + ' · ' + (p.memberId || '') });
+      }
+    });
+
+    const opts = waiting.map(function (w) {
+      return '<option value="' + esc(w.key) + '">' + esc(w.label) + '</option>';
+    }).join('');
+
+    const alertCards = S.fxAlerts.map(function (a) {
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>';
+
+      if (a.matchedTo) {
+        return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
+      }
+
+      return '<div class="card">' + head
+        + '<label>Match to a waiting payment</label>'
+        + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
+        + '<div class="row"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button></div>'
+        + '</div>';
+    }).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
+
+    const pendingCards = (S.fxAll || []).filter(function (p) {
+      return p.status === 'pending';
+    }).map(function (p) {
+      return '<div class="card"><div class="big">' + naira(p.amount) + '</div><h3>' + esc(p.name) + '</h3>'
+        + '<div class="mute">' + esc(p.memberId) + ' · ' + esc(p.date || '') + '</div>'
+        + '<div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
+    }).join('') || '<div class="card mute">No member payments waiting.</div>';
+
+    return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
+      + '<h2>Finance</h2>'
+      + '<div class="card"><h3>Paste a bank alert</h3>'
+      + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
+      + '<textarea id="fxp_text" rows="5"></textarea>'
+      + '<button class="p" onclick="fxSaveAlert()">Save bank alert</button></div>'
+      + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
+      + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
+      + '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>'
+      + '<label>Date</label><input id="fxe_date" type="date" value="' + fxToday() + '">'
+      + '<label>Amount (₦)</label><input id="fxe_amt" type="number">'
+      + '<label>Purpose</label><input id="fxe_purpose">'
+      + '<label>Received by (member ID)</label><input id="fxe_who" placeholder="e.g. UCA-0002" autocapitalize="characters">'
+      + '<label>Receipt photo (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'exp\',800)"><img id="pv_exp" class="pv" style="display:none">'
+      + '<button class="p" onclick="fxSaveExpense()">Save expense</button></div>'
+      + '<h2>Expenses</h2>' + fxExpenseListHtml(true)
+      + '<div class="card" style="margin-top:14px"><h3>Totals</h3>'
+      + '<p class="mute">Totals update automatically. Use this if they look out of date.</p>'
+      + '<button onclick="fxRecalcNow()">Recalculate totals</button></div>';
+  }
+
+  // --- Render: Finance page, and the total and receipts on the member's Dues page
+  const _renderFin = window.render;
+
+  window.render = function () {
+    if (S.ready && S.view === 'finance' && (!S.user || !S.user.emailVerified)) {
+      S.view = S.user ? 'verify' : 'home';
+    }
+
+    _renderFin();
+
+    const app = $('app');
+
+    if (!app) {
+      return;
+    }
+
+    if (S.view === 'finance') {
+      app.innerHTML = fxFinancePageHtml();
+    }
+
+    if (S.view === 'dues' && S.user && S.user.emailVerified) {
+      const paid = (S.fxMine || []).filter(function (p) { return p.status === 'confirmed'; });
+      const total = paid.reduce(function (s, p) { return s + (Number(p.amount) || 0); }, 0);
+      const receipts = paid.map(function (p) {
+        return '<div class="card"><div class="big">' + naira(p.amount) + '</div>'
+          + '<div class="mute">' + esc(p.date || '') + (p.ref ? ' · ' + esc(p.ref) : '') + '</div>'
+          + '<div class="row"><button onclick="fxDownloadReceipt(\'' + p._id + '\')">Download receipt</button></div></div>';
+      }).join('') || '<div class="card mute">No confirmed payments yet.</div>';
+
+      app.insertAdjacentHTML('beforeend',
+        '<h2>Your total paid</h2><div class="card"><div class="big">' + naira(total) + '</div></div>'
+        + '<h2>Receipts</h2><div class="grid">' + receipts + '</div>');
+    }
+  };
+
+  // --- Menu: "Finance" for logged-in members
+  const _navFin = window.nav;
+
+  window.nav = function () {
+    _navFin();
+
+    const nav = document.getElementById('nav');
+
+    if (!nav || !S.user || !S.user.emailVerified) {
+      return;
+    }
+
+    const btn = document.createElement('button');
+
+    btn.textContent = 'Finance';
+    btn.setAttribute('onclick', "go('finance')");
+
+    if (S.view === 'finance') {
+      btn.classList.add('on');
+    }
+
+    const out = Array.prototype.slice.call(nav.children).filter(function (b) {
+      return (b.getAttribute('onclick') || '').indexOf('out()') >= 0;
+    })[0];
+
+    if (out) {
+      nav.insertBefore(btn, out);
+    } else {
+      nav.appendChild(btn);
+    }
+  };
+
+  // --- Admin: the Finance tile, the Paid-by choice on donations and dues, and the Finance section
+  const _adminFin = window.admin;
+
+  window.admin = function () {
+    if (isAdmin() && S.tab === 'fxfin') {
+      return fxFinanceAdmin();
+    }
+
+    let h = _adminFin();
+
+    if (!isAdmin()) {
+      return h;
+    }
+
+    if (S.tab === 'dash') {
+      const tile = '<div class="card tile" onclick="S.tab=\'fxfin\';render();window.scrollTo(0,0)">'
+        + '<div class="ic">🧾</div>'
+        + '<h3>Finance</h3>'
+        + '<div class="mute">Bank alerts, cash, expenses and balance</div>'
+        + '</div>';
+      const i = h.lastIndexOf('</div>');
+
+      h = h.slice(0, i) + tile + h.slice(i);
+    }
+
+    if (S.tab === 'donations') {
+      h = h.replace(
+        '<button class="p" onclick="addDon()">Record</button>',
+        '<label>Paid by</label><select id="dm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select>'
+          + '<button class="p" onclick="addDon()">Record</button>'
+      );
+    }
+
+    if (S.tab === 'fxdues') {
+      h = h.replace(
+        '<button class="p" onclick="fxAdminRecord()">Record payment</button>',
+        '<label>Paid by</label><select id="fx_rm"><option value="cash">Cash</option><option value="bank">Bank transfer</option></select>'
+          + '<button class="p" onclick="fxAdminRecord()">Record payment</button>'
+      );
+    }
+
+    return h;
+  };
+
+  Object.assign(window, {
+    addDon: fxAddDonation,
+    fxAdminRecord: fxRecordDues,
+    fxSaveAlert: fxSaveAlert,
+    fxMatchAlert: fxMatchAlert,
+    fxConfirmCash: fxConfirmCash,
+    fxSaveExpense: fxSaveExpense,
+    fxDelExpense: fxDelExpense,
+    fxRecalcNow: fxRecalcNow,
+    fxDownloadReceipt: fxDownloadReceipt
+  });
+
+  [
+    ['addDon', 'Recording...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxSaveAlert', 'Saving...'],
+    ['fxMatchAlert', 'Matching...'],
+    ['fxConfirmCash', 'Saving...'],
+    ['fxSaveExpense', 'Saving...'],
+    ['fxDelExpense', 'Deleting...'],
+    ['fxRecalcNow', 'Updating...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
 
   
   // ------------------------------------------------------------
