@@ -2745,7 +2745,7 @@ const date = dm ? fxParseDate(dm[1]) : '';
       return '<div class="card">'
         + '<div class="big">' + naira(a.amount) + '</div>'
         + '<h3>' + esc(a.sender) + '</h3>'
-        + '<div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>'
+        + '<div class="mute">' + esc(a.date) + '</div>'        
         + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
         + '</div>';
     }).join('') + '</div>';
