@@ -283,7 +283,7 @@ async function addMember(){
       id,
       name: n,
       phone: v('ap'),
-      address: v('ah'),
+      house: v('ah'),
       village: v('av'),
       email: v('ae'),
       role: 'member',
