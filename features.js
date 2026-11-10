@@ -3001,7 +3001,7 @@
           + '<button class="p" onclick="fxAdminRecord()">Record payment</button>'
       );
     }
-
+    
     return h;
   };
 
