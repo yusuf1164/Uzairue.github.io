@@ -2371,8 +2371,8 @@ const date = dm ? fxParseDate(dm[1]) : '';
 
   // Look for sender. Try "from <name>" or "Name: <name>".
   const fromMatch = t.match(/\bfrom\s+([A-Za-z][A-Za-z .'\-]{1,60})/i);
-  const nameMatch = t.match(/\b(?:Name|Sender|Payer)\s*:\s*([A-Za-z][A-Za-z .'\-]{1,60})/i);
-  
+  const nameMatch = t.match(/\b(?:Name|Sender|Payer)\s*:\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|$))/i);
+    
   let sender = '';
   if (fromMatch) {
     sender = fromMatch[1].trim().toUpperCase();
