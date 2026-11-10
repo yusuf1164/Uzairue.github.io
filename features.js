@@ -1637,6 +1637,182 @@
   });
 
 
+    // ------------------------------------------------------------
+  // DUPLICATE EMAIL GUARD
+  // (paste above the "SECTION: Hook-up and start" part, after the claim block)
+  // What it does:
+  //   1. Blocks registering a new member when another record already
+  //      uses that email (or a login is already linked to it).
+  //   2. Blocks "Enable login" when another record uses the same email.
+  //   3. Shows a red "Duplicate emails" warning on the Members page,
+  //      listing each duplicate pair so you can fix it.
+  // Existing duplicates are not deleted. Fix them by removing one record
+  // or changing its email.
+  // ------------------------------------------------------------
+
+  // --- Finds another active record that uses this email
+  function fxOtherWithEmail(email, exceptId) {
+    const key = fxEmailKey(email);
+
+    if (!key) {
+      return null;
+    }
+
+    return S.mem.filter(function (m) {
+      return fxEmailKey(m.email) === key && m._id !== exceptId && !m.claimedBy;
+    })[0] || null;
+  }
+
+  // --- Block a new registration that reuses an email
+  const _submitGuard = window.submitMember;
+
+  window.submitMember = async function () {
+    const email = fxEmailKey(v('ae'));
+    const editing = S.editId;
+
+    if (!editing && email) {
+      const other = fxOtherWithEmail(email, '');
+
+      if (other) {
+        return say('That email already belongs to ' + other.id + ' (' + other.name + '). Use that ID to edit them, or use a different email.');
+      }
+
+      if (S.fxClaims[email]) {
+        return say('That email already has a login linked to ' + S.fxClaims[email].memberId + '.');
+      }
+    }
+
+    return _submitGuard();
+  };
+
+  // --- Block "Enable login" when the email is shared with another record
+  const _enableGuard = window.fxEnableLogin;
+
+  window.fxEnableLogin = async function (docId) {
+    const m = S.mem.filter(function (x) {
+      return x._id === docId;
+    })[0];
+
+    if (m) {
+      const other = fxOtherWithEmail(m.email, m._id);
+
+      if (other) {
+        return say('Another record uses this email (' + other.id + '). Fix the duplicate before enabling login.');
+      }
+    }
+
+    return _enableGuard(docId);
+  };
+
+  // --- Show a warning on the Members page for any duplicate emails
+  const _adminGuard = window.admin;
+
+  window.admin = function () {
+    const h = _adminGuard();
+
+    if (!isAdmin() || S.tab !== 'members') {
+      return h;
+    }
+
+    const seen = {};
+    const dups = [];
+
+    S.mem.forEach(function (m) {
+      const k = fxEmailKey(m.email);
+
+      if (!k || m.claimedBy) {
+        return;
+      }
+
+      if (seen[k]) {
+        dups.push(seen[k].id + ' and ' + m.id + ' (' + k + ')');
+      } else {
+        seen[k] = m;
+      }
+    });
+
+    if (!dups.length) {
+      return h;
+    }
+
+    const warning =
+      '<div class="card" style="border-color:var(--bad)"><h3>Duplicate emails</h3>'
+      + dups.map(function (d) { return '<div class="mute">' + esc(d) + '</div>'; }).join('')
+      + '</div>';
+
+    return h.replace('<h2>Member logins</h2>', warning + '<h2>Member logins</h2>');
+  };
+
+      // ------------------------------------------------------------
+  // AUTO CLEANUP OF CLAIMED RECORDS
+  // (paste above the "SECTION: Hook-up and start" part, after the duplicate guard)
+  // What it does: each time an admin loads the app, for every member
+  //   who has claimed their admin-made record:
+  //   1. Moves any dues payments from the old record to the member's login.
+  //   2. Deletes the old record, but only after step 1 succeeds.
+  // It only touches records that are marked as claimed by that exact
+  // login, so unclaimed records are never removed.
+  // The claim record is kept, so the same person cannot claim again.
+  // ------------------------------------------------------------
+
+  // --- Admin: after the normal load, tidy up claimed records
+  const _loadAdminCleanup = window.loadAdmin;
+
+  window.loadAdmin = async function () {
+    await _loadAdminCleanup();
+    await fxAutoCleanup();
+  };
+
+  // --- Move payments and delete the old record for each claimed member
+  async function fxAutoCleanup() {
+    if (!cfgOk || !isAdmin()) {
+      return;
+    }
+
+    let all = [];
+    let dues = [];
+
+    try {
+      all = await list('members');
+      dues = await list('dues');
+    } catch (e) {
+      return;
+    }
+
+    const byId = {};
+
+    all.forEach(function (m) {
+      byId[m._id] = m;
+    });
+
+    const linked = all.filter(function (n) {
+      const old = n.legacyDocId ? byId[n.legacyDocId] : null;
+
+      return !!old && old.claimedBy === n._id;
+    });
+
+    for (const n of linked) {
+      const oldId = n.legacyDocId;
+
+      try {
+        const rows = dues.filter(function (p) {
+          return p.mid === oldId;
+        });
+
+        for (const p of rows) {
+          await updateDoc(doc(db, 'dues', p._id), { mid: n._id, uid: n._id });
+        }
+
+        await deleteDoc(doc(db, 'members', oldId));
+      } catch (e) {
+        // Leave the old record in place if anything fails, so nothing is lost
+      }
+    }
+  }
+
+
+
+
   
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
