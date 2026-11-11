@@ -2345,7 +2345,7 @@
   const warnings = [];
 
   const credit = /\b(credit|credited|received|CR)\b/i.test(t);
-  const debit  = /\b(debit|debited|DR)\b/i.test(t);
+  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out)\b/i.test(t);
 
   if (debit && !credit) {
     return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
