@@ -4298,6 +4298,598 @@
 
 
 
+  // ------------------------------------------------------------
+  // NEWS EDITOR, IMAGE POP-UP AND MATCHED LABEL
+  // (paste above the "SECTION: Hook-up and start" part, after your other blocks)
+  // What it does:
+  //   1. Admin > News gets a Word-style editor: bold, italic, underline,
+  //      strikethrough, headings, lists, alignment, links, text colour,
+  //      highlight, undo/redo and clear formatting.
+  //      Pasting from WhatsApp or Word keeps the basics (WhatsApp *bold*
+  //      and _italic_ become real bold and italic).
+  //   2. News posts show exactly as the admin styled them, in a full-width
+  //      card. Old plain-text posts show their paragraphs and bold marks.
+  //   3. Each post has an Edit button that loads it back into the editor.
+  //   4. Click or tap a news, project or banner image to see it full size.
+  //   5. On matched bank alert cards, "Matched" now sits on the same line
+  //      as Delete, at the right edge, in the same size.
+  // Safety: the text is cleaned before it is saved and again before it is
+  // shown. Only safe formatting is kept.
+  // Needs no new Firebase rules.
+  // ------------------------------------------------------------
+
+  S.fxEditNews = S.fxEditNews || '';
+  S.fxNewsDraft = S.fxNewsDraft || null;
+
+  // --- Styles: full-width news, post text, editor toolbar, image pop-up, matched label
+  const newsStyle = document.createElement('style');
+
+  newsStyle.textContent =
+    '#news + .grid{grid-template-columns:1fr}' +
+    '#news + .grid .thumb{height:auto;max-height:320px;object-fit:cover}' +
+    'img.thumb,img.donimg{cursor:zoom-in}' +
+    '.fxPost{line-height:1.6;overflow-wrap:anywhere}' +
+    '.fxPost p,.fxPost div{margin:0 0 10px}' +
+    '.fxPost h2,.fxPost h3{margin:14px 0 6px}' +
+    '.fxPost ul,.fxPost ol{margin:0 0 10px;padding-left:24px}' +
+    '.fxPost a{color:var(--acc);text-decoration:underline}' +
+    '.fxPost blockquote{margin:0 0 10px;padding-left:12px;border-left:3px solid var(--line)}' +
+    '.fxTool{display:flex;gap:6px;overflow-x:auto;padding:6px 0;margin-bottom:6px}' +
+    '.fxTool button{flex:none;min-width:40px;padding:8px 10px}' +
+    '.fxTool label.fxCol{flex:none;display:flex;align-items:center;gap:4px;color:var(--ink);font-weight:700}' +
+    '.fxTool input[type=color]{width:38px;height:38px;padding:2px;margin:0}' +
+    '.fxEd{min-height:240px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--field);color:var(--ink);line-height:1.6;overflow-wrap:anywhere;outline:none;margin-bottom:10px}' +
+    '.fxEd:focus{border-color:var(--acc)}' +
+    '.fxEd:empty:before{content:attr(data-hint);color:var(--mute)}' +
+    '.fxEd p,.fxEd div{margin:0 0 10px}' +
+    '.fxEd ul,.fxEd ol{margin:0 0 10px;padding-left:24px}' +
+    '.fxLb{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:12px}' +
+    '.fxLb img{max-width:100%;max-height:100%;border-radius:10px;cursor:zoom-out}' +
+    '.fxLb button{position:absolute;top:12px;right:12px}' +
+    '.fxMatchedRow{justify-content:space-between;align-items:center}' +
+    '.fxMatched{display:inline-block;font:inherit;line-height:1.5;padding:8px 12px;border:1px solid var(--acc);border-radius:10px;background:var(--acc);color:var(--accink);font-weight:600}';
+  document.head.appendChild(newsStyle);
+
+  // ------------------------------------------------------------
+  // Cleaning: keeps only safe tags and styles
+  // ------------------------------------------------------------
+  const FX_ALLOWED = {
+    P: 1, BR: 1, B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1,
+    H2: 1, H3: 1, UL: 1, OL: 1, LI: 1, A: 1, SPAN: 1, DIV: 1, BLOCKQUOTE: 1
+  };
+
+  // Elements removed together with everything inside them
+  const FX_DROP = {
+    SCRIPT: 1, STYLE: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, LINK: 1, META: 1,
+    SVG: 1, MATH: 1, FORM: 1, INPUT: 1, BUTTON: 1, TEXTAREA: 1, SELECT: 1,
+    IMG: 1, VIDEO: 1, AUDIO: 1, CANVAS: 1, TEMPLATE: 1, NOSCRIPT: 1
+  };
+
+  // A colour value is kept only if it looks like a colour (no urls, no functions except rgb)
+  function fxSafeColor(value) {
+    const c = String(value || '').trim();
+
+    if (/^#[0-9a-fA-F]{3,8}$/.test(c)) {
+      return c;
+    }
+
+    if (/^rgba?\(\s*[0-9.\s,%]+\)$/.test(c)) {
+      return c;
+    }
+
+    if (/^[a-zA-Z]{3,20}$/.test(c)) {
+      return c;
+    }
+
+    return '';
+  }
+
+  // Links must start with http, https, mailto or tel
+  function fxSafeHref(value) {
+    const h = String(value || '').trim();
+
+    return /^(https?:|mailto:|tel:)/i.test(h) ? h : '';
+  }
+
+  // Builds a safe style string from the few styles we allow
+  function fxCleanStyle(el) {
+    const s = el.style;
+    const out = [];
+    const color = fxSafeColor(s.color);
+    const back = fxSafeColor(s.backgroundColor);
+
+    if (color) {
+      out.push('color:' + color);
+    }
+
+    if (back) {
+      out.push('background-color:' + back);
+    }
+
+    if (/^(left|right|center|justify)$/.test(s.textAlign)) {
+      out.push('text-align:' + s.textAlign);
+    }
+
+    if (s.fontWeight === 'bold' || Number(s.fontWeight) >= 600) {
+      out.push('font-weight:bold');
+    }
+
+    if (s.fontStyle === 'italic') {
+      out.push('font-style:italic');
+    }
+
+    const deco = String(s.textDecorationLine || s.textDecoration || '');
+
+    if (deco.indexOf('underline') >= 0 && deco.indexOf('line-through') >= 0) {
+      out.push('text-decoration:underline line-through');
+    } else if (deco.indexOf('underline') >= 0) {
+      out.push('text-decoration:underline');
+    } else if (deco.indexOf('line-through') >= 0) {
+      out.push('text-decoration:line-through');
+    }
+
+    return out.join(';');
+  }
+
+  // Copies the safe parts of one element's children into a new element
+  function fxCleanChildren(from, to) {
+    Array.prototype.slice.call(from.childNodes).forEach(function (node) {
+      if (node.nodeType === 3) {
+        to.appendChild(document.createTextNode(node.nodeValue));
+        return;
+      }
+
+      if (node.nodeType !== 1) {
+        return;
+      }
+
+      const tag = node.tagName;
+
+      if (FX_DROP[tag]) {
+        return;
+      }
+
+      // Old-style <font color="..."> becomes a styled span
+      if (tag === 'FONT') {
+        const span = document.createElement('span');
+        const c = fxSafeColor(node.getAttribute('color'));
+
+        if (c) {
+          span.style.color = c;
+        }
+
+        fxCleanChildren(node, span);
+        to.appendChild(span);
+        return;
+      }
+
+      // Unknown tags are removed but their text is kept
+      if (!FX_ALLOWED[tag]) {
+        fxCleanChildren(node, to);
+        return;
+      }
+
+      if (tag === 'A') {
+        const href = fxSafeHref(node.getAttribute('href'));
+
+        if (!href) {
+          fxCleanChildren(node, to);
+          return;
+        }
+
+        const link = document.createElement('a');
+
+        link.setAttribute('href', href);
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+        fxCleanChildren(node, link);
+        to.appendChild(link);
+        return;
+      }
+
+      const el = document.createElement(tag.toLowerCase());
+      const style = fxCleanStyle(node);
+
+      if (style) {
+        el.setAttribute('style', style);
+      }
+
+      fxCleanChildren(node, el);
+      to.appendChild(el);
+    });
+  }
+
+  function fxClean(html) {
+    const parsed = new DOMParser().parseFromString('<body>' + String(html || '') + '</body>', 'text/html');
+    const out = document.createElement('div');
+
+    fxCleanChildren(parsed.body, out);
+
+    return out.innerHTML;
+  }
+
+  // ------------------------------------------------------------
+  // Plain text (including WhatsApp style) to HTML
+  // ------------------------------------------------------------
+  function fxPlainToHtml(text) {
+    const safe = esc(String(text || '').replace(/\r/g, ''));
+    const blocks = safe.split(/\n{2,}/);
+
+    const html = blocks.map(function (block) {
+      let line = block.replace(/\n/g, '<br>');
+
+      line = line.replace(/\*(?=\S)([^*\n]*?\S)\*/g, '<b>$1</b>');
+      line = line.replace(/(^|[\s(>])_(?=\S)([^_\n]*?\S)_(?=$|[\s).,!?<])/g, '$1<i>$2</i>');
+      line = line.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+
+      return '<p>' + line + '</p>';
+    }).join('');
+
+    return fxClean(html);
+  }
+
+  // A saved post: the styled version if it has one, otherwise the old plain text
+  function fxPostHtml(n) {
+    return n.html ? fxClean(n.html) : fxPlainToHtml(n.body);
+  }
+
+  // ------------------------------------------------------------
+  // Home page: show news as styled text
+  // ------------------------------------------------------------
+  const _homeNews = window.home;
+
+  window.home = function () {
+    let h = _homeNews();
+
+    S.news.forEach(function (n) {
+      const plain = '<h3>' + esc(n.title) + '</h3><p>' + esc(n.body) + '</p></div>';
+      const styled = '<h3>' + esc(n.title) + '</h3><div class="fxPost">' + fxPostHtml(n) + '</div></div>';
+
+      if (h.indexOf(plain) >= 0) {
+        h = h.replace(plain, function () { return styled; });
+      }
+    });
+
+    return h;
+  };
+
+  // ------------------------------------------------------------
+  // Editor: toolbar commands, selection memory and paste clean-up
+  // ------------------------------------------------------------
+  let fxRange = null;
+
+  // The toolbar buttons steal focus, so the last selection inside the editor is remembered
+  function fxSaveSel() {
+    const sel = window.getSelection();
+    const ed = $('fxEditor');
+
+    if (sel && sel.rangeCount && ed && ed.contains(sel.anchorNode)) {
+      fxRange = sel.getRangeAt(0).cloneRange();
+    }
+  }
+
+  function fxRestoreSel() {
+    if (!fxRange) {
+      return;
+    }
+
+    const sel = window.getSelection();
+
+    sel.removeAllRanges();
+    sel.addRange(fxRange);
+  }
+
+  document.addEventListener('selectionchange', fxSaveSel);
+
+  // Runs a formatting command on the selected text
+  function fxCmd(cmd, value) {
+    const ed = $('fxEditor');
+
+    if (!ed) {
+      return;
+    }
+
+    ed.focus();
+    fxRestoreSel();
+
+    try {
+      document.execCommand('styleWithCSS', false, true);
+    } catch (e) {
+      // Not needed in every browser
+    }
+
+    document.execCommand(cmd, false, value || null);
+    fxSaveSel();
+  }
+
+  function fxLink() {
+    const url = prompt('Link address (https://...)', 'https://');
+
+    if (url) {
+      fxCmd('createLink', url);
+    }
+  }
+
+  function fxColor(cmd, inputId) {
+    const input = $(inputId);
+
+    if (input) {
+      fxCmd(cmd, input.value);
+    }
+  }
+
+  // Paste: keep the basics, drop the mess. WhatsApp *bold* becomes real bold.
+  document.addEventListener('paste', function (e) {
+    const target = e.target && e.target.nodeType === 1 ? e.target : (e.target ? e.target.parentElement : null);
+
+    if (!target || !target.closest || !target.closest('#fxEditor')) {
+      return;
+    }
+
+    e.preventDefault();
+
+    const data = e.clipboardData;
+    const html = data ? data.getData('text/html') : '';
+    const text = data ? data.getData('text/plain') : '';
+    const clean = html ? fxClean(html) : fxPlainToHtml(text);
+
+    document.execCommand('insertHTML', false, clean);
+  });
+
+  // Pressing Enter makes a new paragraph
+  document.addEventListener('focusin', function (e) {
+    if (e.target && e.target.id === 'fxEditor') {
+      try {
+        document.execCommand('defaultParagraphSeparator', false, 'p');
+      } catch (err) {
+        // Not needed in every browser
+      }
+    }
+  });
+
+  // ------------------------------------------------------------
+  // Admin > News: the editor page, saving, editing
+  // ------------------------------------------------------------
+  function fxToolButton(label, title, cmd, value) {
+    const arg = value ? ",'" + value + "'" : '';
+
+    return '<button type="button" title="' + title + '" onmousedown="event.preventDefault()" onclick="fxCmd(\'' + cmd + '\'' + arg + ')">' + label + '</button>';
+  }
+
+  function fxToolbarHtml() {
+    return '<div class="fxTool">'
+      + fxToolButton('<b>B</b>', 'Bold', 'bold')
+      + fxToolButton('<i>I</i>', 'Italic', 'italic')
+      + fxToolButton('<u>U</u>', 'Underline', 'underline')
+      + fxToolButton('<s>S</s>', 'Strikethrough', 'strikeThrough')
+      + fxToolButton('Heading', 'Heading', 'formatBlock', '<h2>')
+      + fxToolButton('Sub', 'Subheading', 'formatBlock', '<h3>')
+      + fxToolButton('Text', 'Normal paragraph', 'formatBlock', '<p>')
+      + fxToolButton('\u2022 List', 'Bulleted list', 'insertUnorderedList')
+      + fxToolButton('1. List', 'Numbered list', 'insertOrderedList')
+      + fxToolButton('Left', 'Align left', 'justifyLeft')
+      + fxToolButton('Center', 'Align centre', 'justifyCenter')
+      + fxToolButton('Right', 'Align right', 'justifyRight')
+      + '<button type="button" title="Link" onmousedown="event.preventDefault()" onclick="fxLink()">Link</button>'
+      + '<label class="fxCol" title="Text colour">A<input type="color" id="fxc_fore" value="#c0392b" onchange="fxColor(\'foreColor\',\'fxc_fore\')"></label>'
+      + '<label class="fxCol" title="Highlight">Hi<input type="color" id="fxc_back" value="#ffe066" onchange="fxColor(\'hiliteColor\',\'fxc_back\')"></label>'
+      + fxToolButton('Undo', 'Undo', 'undo')
+      + fxToolButton('Redo', 'Redo', 'redo')
+      + fxToolButton('Clear', 'Clear formatting', 'removeFormat')
+      + '</div>';
+  }
+
+  function fxNewsAdmin() {
+    const editing = S.fxEditNews ? S.news.filter(function (n) { return n._id === S.fxEditNews; })[0] : null;
+    const draft = S.fxNewsDraft;
+    const title = draft ? draft.title : (editing ? editing.title : '');
+    const body = draft ? fxClean(draft.html) : (editing ? fxPostHtml(editing) : '');
+    const parts = [];
+
+    parts.push('<div class="row"><button onclick="S.tab=\'dash\';render()">\u2190 Back to Admin</button></div>');
+    parts.push('<h2>News</h2>');
+    parts.push('<div class="card"><h3>' + (editing ? 'Edit news' : 'Post news') + '</h3>');
+    parts.push('<label>Title</label><input id="fn_t" value="' + esc(title) + '">');
+    parts.push('<label>Story</label>');
+    parts.push(fxToolbarHtml());
+    parts.push('<div id="fxEditor" class="fxEd" contenteditable="true" data-hint="Write your story here...">' + body + '</div>');
+    parts.push('<label>Image (optional)</label>');
+
+    if (editing && imgOk(editing.img)) {
+      parts.push('<img class="pv" src="' + esc(editing.img) + '" alt="">');
+    }
+
+    parts.push('<input type="file" accept="image/*" onchange="fxPick(this,\'news\',900)">');
+    parts.push('<img id="pv_news" class="pv" style="display:none">');
+    parts.push('<div class="row">');
+    parts.push('<button class="p" onclick="fxNewsSave()">' + (editing ? 'Save changes' : 'Publish') + '</button>');
+
+    if (editing || draft) {
+      parts.push('<button onclick="fxNewsCancel()">Cancel</button>');
+    }
+
+    parts.push('</div></div>');
+    parts.push('<h2>Posts</h2><div class="grid">');
+
+    if (!S.news.length) {
+      parts.push('<div class="card mute">No news yet.</div>');
+    }
+
+    S.news.forEach(function (n) {
+      parts.push('<div class="card">'
+        + (imgOk(n.img) ? '<img class="thumb" src="' + esc(n.img) + '" alt="">' : '')
+        + '<h3>' + esc(n.title) + '</h3>'
+        + '<p class="mute">' + esc(String(n.body || '').slice(0, 140)) + '</p>'
+        + '<div class="row">'
+        + '<button onclick="fxNewsEdit(\'' + n._id + '\')">Edit</button>'
+        + '<button class="d" onclick="del(\'news\',\'' + n._id + '\')">Delete</button>'
+        + '</div></div>');
+    });
+
+    parts.push('</div>');
+
+    return parts.join('');
+  }
+
+  // Saves a new post, or the changes to the post being edited
+  async function fxNewsSave() {
+    const editor = $('fxEditor');
+    const title = v('fn_t');
+    const html = fxClean(editor ? editor.innerHTML : '');
+    const plain = editor ? editor.innerText.trim() : '';
+
+    // Keep what was typed, so a missing title does not wipe the story
+    S.fxNewsDraft = { title: title, html: html };
+
+    if (!title) {
+      return say('Please enter a title.');
+    }
+
+    if (!plain) {
+      return say('Please write the story.');
+    }
+
+    const data = { title: title, body: plain, html: html };
+
+    try {
+      if (S.fxEditNews) {
+        if (IMG.news) {
+          data.img = IMG.news;
+        }
+
+        await updateDoc(doc(db, 'news', S.fxEditNews), data);
+      } else {
+        data.img = IMG.news || '';
+        data.at = serverTimestamp();
+        await addDoc(collection(db, 'news'), data);
+      }
+
+      IMG.news = '';
+      S.fxEditNews = '';
+      S.fxNewsDraft = null;
+      await reload();
+      say('News saved.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  function fxNewsEdit(id) {
+    S.fxEditNews = id;
+    S.fxNewsDraft = null;
+    IMG.news = '';
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function fxNewsCancel() {
+    S.fxEditNews = '';
+    S.fxNewsDraft = null;
+    IMG.news = '';
+    render();
+  }
+
+  const _adminNews = window.admin;
+
+  window.admin = function () {
+    if (isAdmin() && S.tab === 'news') {
+      return fxNewsAdmin();
+    }
+
+    return _adminNews();
+  };
+
+  // ------------------------------------------------------------
+  // Image pop-up: tap a news, project or banner image to see it full size
+  // ------------------------------------------------------------
+  function fxLightboxClose() {
+    const box = document.getElementById('fxLightbox');
+
+    if (box) {
+      box.remove();
+    }
+  }
+
+  function fxLightboxOpen(src) {
+    fxLightboxClose();
+
+    const box = document.createElement('div');
+
+    box.className = 'fxLb';
+    box.id = 'fxLightbox';
+    box.innerHTML = '<img alt="" src="' + esc(src) + '"><button class="p" type="button">\u2715</button>';
+    box.onclick = fxLightboxClose;
+    document.body.appendChild(box);
+  }
+
+  document.addEventListener('click', function (e) {
+    const img = e.target && e.target.tagName === 'IMG' ? e.target : null;
+
+    if (img && (img.classList.contains('thumb') || img.classList.contains('donimg'))) {
+      fxLightboxOpen(img.src);
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      fxLightboxClose();
+    }
+  });
+
+  // ------------------------------------------------------------
+  // Matched bank alerts: "Matched" on the same line as Delete, at the right edge
+  // ------------------------------------------------------------
+  function fxMatchedRows(html) {
+    const old = /<span class="tag a" style="margin-bottom:8px">Matched<\/span><div class="row"><button class="d" onclick="fxDelAlert\('([^']+)'\)">Delete<\/button><\/div>/g;
+
+    return html.replace(old, function (all, id) {
+      return '<div class="row fxMatchedRow">'
+        + '<button class="d" onclick="fxDelAlert(\'' + id + '\')">Delete</button>'
+        + '<span class="fxMatched">Matched</span>'
+        + '</div>';
+    });
+  }
+
+  const _adminMatched = window.admin;
+
+  window.admin = function () {
+    const h = _adminMatched();
+
+    return isAdmin() && S.tab === 'fxfin' ? fxMatchedRows(h) : h;
+  };
+
+  // The search box above the alerts re-draws the cards, so fix those as well
+  const _refreshMatched = window.fxRefreshAlerts;
+
+  window.fxRefreshAlerts = function () {
+    if (_refreshMatched) {
+      _refreshMatched();
+    }
+
+    const box = $('fx_alert_list');
+
+    if (box) {
+      box.innerHTML = fxMatchedRows(box.innerHTML);
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Hook-up: make the new buttons work, with a "working" label on the saving ones
+  // ------------------------------------------------------------
+  Object.assign(window, {
+    fxCmd: fxCmd,
+    fxLink: fxLink,
+    fxColor: fxColor,
+    fxNewsSave: fxNewsSave,
+    fxNewsEdit: fxNewsEdit,
+    fxNewsCancel: fxNewsCancel
+  });
+
+  window.fxNewsSave = busyWrap(window.fxNewsSave, 'Saving...');
+
+
+
+  
   
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
