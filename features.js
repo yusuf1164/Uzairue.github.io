@@ -2293,91 +2293,106 @@
 
   // --- Reads any common date format → "YYYY-MM-DD" (or '' if unreadable)
   function fxParseDate(s) {
-    s = String(s || '').trim();
-    if (!s) return '';
+  s = String(s || '').trim();
+  if (!s) return '';
 
-    // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
-    let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
-    if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
+  // Remove ordinal suffixes like 1st, 2nd, 3rd, 10th
+  s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
 
-    // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
-    m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
-    if (m) {
+  // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
+  let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
+  if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
+
+  // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
+  m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
+  if (m) {
+    let y = m[3];
+    if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+    return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
+  }
+
+  // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
+  m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
+  if (m) {
+    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
+    if (mo >= 0) {
       let y = m[3];
       if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-      return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
+      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
     }
-
-    // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
-    m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
-    if (m) {
-      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
-      if (mo >= 0) {
-        let y = m[3];
-        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
-      }
-    }
-
-    // Nov 12, 2026 / Nov 12 2026
-    m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
-    if (m) {
-      const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
-      if (mo >= 0) {
-        let y = m[3];
-        if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-        return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
-      }
-    }
-
-    return '';
   }
+
+  // Nov 12, 2026 / Nov 12 2026
+  m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
+  if (m) {
+    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
+    if (mo >= 0) {
+      let y = m[3];
+      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
+      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
+    }
+  }
+
+  return '';
+}
 
   // --- Reads a credit alert (any bank / fintech) and returns pre-filled fields.
   //     Returns { error } for a debit alert; otherwise returns
   //     { amount, date, sender, narration, warnings[] } so the admin
   //     can fix any blank or wrong field before saving.
   function fxParseAlert(text) {
-    const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-    const warnings = [];
+  const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
+  const warnings = [];
 
-    const credit = /\b(credit|credited|received|CR)\b/i.test(t);
-    const debit  = /\b(debit|debited|DR)\b/i.test(t);
+  const credit = /\b(credit|credited|received|CR)\b/i.test(t);
+  const debit  = /\b(debit|debited|DR)\b/i.test(t);
 
-    if (debit && !credit) {
-      return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
-    }
-    if (!credit) {
-      warnings.push('No credit keyword found — check this is a credit alert.');
-    }
-
-    const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
-    const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
-    if (!(amount > 0)) {
-      warnings.push('Amount not found — enter it manually.');
-    }
-
-    const dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-    const date = dm ? fxParseDate(dm[1]) : '';
-    if (!date) {
-      warnings.push('Date not found — enter it manually.');
-    }
-
-    const f = t.match(/\bfrom\s+([A-Za-z][A-Za-z .'\-]{1,60})/i);
-    const sender = f ? f[1].trim().toUpperCase() : '';
-    if (!sender) {
-      warnings.push('Sender not found — enter it manually.');
-    }
-
-    return {
-      amount: amount,
-      date: date,
-      sender: sender,
-      narration: t.replace(/\d{4,}/g, '****'),
-      warnings: warnings
-    };
+  if (debit && !credit) {
+    return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
+  }
+  if (!credit) {
+    warnings.push('No credit keyword found — verify this is an incoming transfer.');
   }
 
+  const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+  const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
+  if (!(amount > 0)) {
+    warnings.push('Amount not found — enter it manually.');
+  }
+
+  // Look for a date. Handles "Nov 10th, 2026", "10th Nov 2026", and "10/11/2026"
+let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
+if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
+if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+
+const date = dm ? fxParseDate(dm[1]) : '';
+  if (!date) {
+    warnings.push('Date not found — enter it manually.');
+  }
+
+  // Look for sender. Try "from <name>" or "Name: <name>".
+  const fromMatch = t.match(/\bfrom\s+([A-Za-z][A-Za-z .'\-]{1,60})/i);
+  const nameMatch = t.match(/\b(?:Name|Sender|Payer)\s*:\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|$))/i);
+  
+  let sender = '';
+  if (fromMatch) {
+    sender = fromMatch[1].trim().toUpperCase();
+  } else if (nameMatch) {
+    sender = nameMatch[1].trim().toUpperCase();
+  }
+  
+  if (!sender) {
+    warnings.push('Sender not found — enter it manually.');
+  }
+
+  return {
+    amount: amount,
+    date: date,
+    sender: sender,
+    narration: t.replace(/\d{4,}/g, '****'),
+    warnings: warnings
+  };
+}
   // --- Admin: step 1 — read the pasted alert and show the confirm fields
   function fxParseAlertDraft() {
     const raw = $('fxp_text') ? $('fxp_text').value : '';
