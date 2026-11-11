@@ -3674,6 +3674,630 @@
   });
 
 
+
+
+    // ------------------------------------------------------------
+  // CARRY FORWARD AND ALERT FORMS
+  // (paste above the "SECTION: Hook-up and start" part, AFTER the FINANCE block)
+  // What it does:
+  //   1. Every unmatched bank alert card gets two fold-out forms:
+  //        "Record as donation" - pick the project, optionally change the donor name
+  //        "Record as dues"     - pick the member (best name match first, with a search box)
+  //      Either one records the money and matches the alert in one step.
+  //   2. Dues use the member's rate. Months or years are worked out from
+  //      the amount, and anything extra is carried forward as "credit"
+  //      (saved on the member) and added to their next payment.
+  //      Example: 1,500 on a 1,000 monthly plan = 1 month, 500 carried.
+  //   3. The same rule applies when you match an alert to a pending dues
+  //      payment, confirm one, or use "Record a payment" in Dues.
+  //   4. The sender's name is saved as "paidBy", so you can see who really
+  //      sent the money. Receipts show the member's name.
+  //   5. The member's Dues page shows the amount carried forward.
+  // This block only replaces functions at run time. It does not change
+  // anything you edited in the FINANCE block above.
+  // ------------------------------------------------------------
+
+  // "credit" is copied to the member's login record when they claim it (CLAIM block above)
+  CLAIM_FIELDS.push('credit');
+
+  // --- Styles: the fold-out forms on alert cards
+  const creditStyle = document.createElement('style');
+
+  creditStyle.textContent =
+    'details.fxD{margin-top:10px}' +
+    'details.fxD summary{cursor:pointer;color:var(--acc);font-weight:600;padding:6px 0}';
+  document.head.appendChild(creditStyle);
+
+  // --- Splits money into full months or years, and what is left over (carried forward)
+  function fxCreditSplit(credit, amount, rate) {
+    const total = (Number(credit) || 0) + (Number(amount) || 0);
+    const units = Math.floor((total + 0.0001) / rate);
+    const left = Math.round((total - units * rate) * 100) / 100;
+
+    return { units: units, credit: left, total: total };
+  }
+
+  function fxUnitsText(units, plan) {
+    const word = plan === 'yearly' ? 'year' : 'month';
+
+    return units + ' ' + word + (units === 1 ? '' : 's');
+  }
+
+  // --- How alike two names are (shared words), used to sort the member list
+  function fxSimilarity(a, b) {
+    const x = String(a || '').toLowerCase().split(/\s+/).filter(Boolean);
+    const y = String(b || '').toLowerCase().split(/\s+/).filter(Boolean);
+    let score = 0;
+
+    x.forEach(function (w) {
+      if (y.indexOf(w) >= 0) {
+        score += 2;
+      } else if (y.some(function (z) { return z.indexOf(w) === 0 || w.indexOf(z) === 0; })) {
+        score += 1;
+      }
+    });
+
+    return score;
+  }
+
+  // --- Members to choose from for an alert: best name match first, filtered by the search text
+  function fxMemberChoices(sender, query) {
+    const q = String(query || '').toLowerCase();
+
+    return fxPayingMembers()
+      .filter(function (m) {
+        return !q || (m.name + ' ' + m.id).toLowerCase().indexOf(q) >= 0;
+      })
+      .map(function (m) {
+        return { m: m, score: fxSimilarity(sender, m.name) };
+      })
+      .sort(function (a, b) {
+        return b.score - a.score || String(a.m.name).localeCompare(String(b.m.name));
+      });
+  }
+
+  function fxOptionsHtml(choices) {
+    return choices.map(function (c) {
+      const star = c.score > 0 ? ' \u2605' : '';
+
+      return '<option value="' + esc(c.m._id) + '">' + esc(c.m.name) + ' (' + esc(c.m.id) + ')' + star + '</option>';
+    }).join('');
+  }
+
+  // --- Sentence shown before recording dues: what the money covers and what is carried forward
+  function fxPreviewText(a, m) {
+    const plan = fxPlanOf(m);
+    const rate = fxUnitRate(plan);
+
+    if (!(rate > 0)) {
+      return 'Set the dues amounts first (Admin, Dues).';
+    }
+
+    const r = fxCreditSplit(m.credit, a.amount, rate);
+    let text = naira(a.amount) + ' covers ' + fxUnitsText(r.units, plan);
+
+    if (r.credit > 0) {
+      text += ' and ' + naira(r.credit) + ' is carried forward';
+    }
+
+    if (Number(m.credit) > 0) {
+      text += ' (includes ' + naira(m.credit) + ' already carried forward)';
+    }
+
+    return text + '.';
+  }
+
+  function fxDuesPreview(alertId) {
+    const a = S.fxAlerts.filter(function (x) { return x._id === alertId; })[0];
+    const sel = document.getElementById('fxdm_' + alertId);
+    const out = document.getElementById('fxv_' + alertId);
+    const m = sel ? S.mem.filter(function (x) { return x._id === sel.value; })[0] : null;
+
+    if (a && out) {
+      out.textContent = m ? fxPreviewText(a, m) : '';
+    }
+  }
+
+  // --- Search box on the alert card: re-sorts the member list
+  function fxFilterMembers(alertId) {
+    const a = S.fxAlerts.filter(function (x) { return x._id === alertId; })[0];
+    const box = document.getElementById('fxq_' + alertId);
+    const sel = document.getElementById('fxdm_' + alertId);
+
+    if (!a || !sel) {
+      return;
+    }
+
+    sel.innerHTML = fxOptionsHtml(fxMemberChoices(a.sender, box ? box.value : ''));
+    fxDuesPreview(alertId);
+  }
+
+  // --- Confirms a member's dues payment and applies the carry-forward rule:
+  //     (credit already carried + this amount) is split into full months or years,
+  //     and what is left over becomes the member's new credit.
+  async function fxConfirmDues(id, method, paidBy) {
+    const p = (S.fxAll || []).filter(function (x) { return x._id === id; })[0];
+
+    if (!p) {
+      throw new Error('Payment not found. Reload and try again.');
+    }
+
+    if (p.status === 'confirmed') {
+      return;
+    }
+
+    const m = S.mem.filter(function (x) { return x._id === p.mid; })[0];
+    const plan = p.plan === 'yearly' ? 'yearly' : 'monthly';
+    const rate = fxUnitRate(plan);
+    const update = { status: 'confirmed', provisional: false };
+
+    if (method) {
+      update.method = method;
+    }
+
+    if (paidBy) {
+      update.paidBy = paidBy;
+    }
+
+    if (m && rate > 0) {
+      const r = fxCreditSplit(m.credit, p.amount, rate);
+
+      update.count = r.units;
+      update.months = r.units * (plan === 'yearly' ? 12 : 1);
+      update.creditUsed = Number(m.credit) || 0;
+      update.creditAfter = r.credit;
+
+      await updateDoc(doc(db, 'dues', id), update);
+      await updateDoc(doc(db, 'members', m._id), { credit: r.credit });
+      return;
+    }
+
+    await updateDoc(doc(db, 'dues', id), update);
+  }
+
+  // --- Match an alert to a waiting bank donation or a pending dues payment
+  async function fxMatchAlertCredit(alertId) {
+    const box = document.getElementById('fxm_' + alertId);
+    const pick = box ? box.value : '';
+
+    if (!pick) {
+      return say('Choose the payment to match.');
+    }
+
+    const parts = pick.split(':');
+    const kind = parts[0];
+    const id = parts[1];
+
+    try {
+      if (kind === 'donation') {
+        const d = S.fxDon.filter(function (x) { return x._id === id; })[0];
+
+        await updateDoc(doc(db, 'donations', id), { status: 'confirmed', method: 'bank' });
+
+        if (d && d.pid) {
+          await updateDoc(doc(db, 'projects', d.pid), { raised: increment(Number(d.amount) || 0) });
+        }
+      } else {
+        const alert = S.fxAlerts.filter(function (x) { return x._id === alertId; })[0];
+
+        await fxConfirmDues(id, 'bank', alert ? alert.sender : '');
+      }
+
+      await updateDoc(doc(db, 'alerts', alertId), { matchedTo: pick });
+      await fxRecalcFinance();
+      await reload();
+      say('Matched.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Confirm a member's pending payment as cash
+  async function fxConfirmCashCredit(id) {
+    try {
+      await fxConfirmDues(id, 'cash', '');
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Confirm or reject from the Dues pending list. Confirming applies the carry-forward rule.
+  async function fxReviewCredit(id, status) {
+    try {
+      if (status === 'confirmed') {
+        await fxConfirmDues(id, '', '');
+      } else {
+        await updateDoc(doc(db, 'dues', id), { status: status });
+      }
+
+      await fxRecalcFinance();
+      await reload();
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Dues recorded by an admin. Months or years come from the amount and the
+  //     member's rate, and any extra is carried forward (same rule as alerts).
+  //     Cash counts straight away. Bank waits until its alert is matched, and the
+  //     carry-forward is applied at that moment.
+  async function fxRecordDuesCredit() {
+    const id = v('fx_rid').toUpperCase();
+    const m = S.mem.filter(function (x) { return String(x.id).toUpperCase() === id; })[0];
+
+    if (!m) {
+      return say('No member with that ID.');
+    }
+
+    const plan = fxPlanOf(m);
+    const rate = fxUnitRate(plan);
+    const amount = Number(v('fx_ra'));
+    const method = v('fx_rm') === 'bank' ? 'bank' : 'cash';
+
+    if (!(amount > 0)) {
+      return say('Enter the amount received.');
+    }
+
+    if (!(rate > 0)) {
+      return say('Set the dues amounts first (Dues settings).');
+    }
+
+    const waiting = method === 'bank';
+    const r = fxCreditSplit(waiting ? 0 : m.credit, amount, rate);
+
+    try {
+      await addDoc(collection(db, 'dues'), {
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: r.units,
+        months: r.units * (plan === 'yearly' ? 12 : 1),
+        amount: amount,
+        ref: v('fx_rr'),
+        receipt: '',
+        status: waiting ? 'pending' : 'confirmed',
+        method: method,
+        provisional: waiting,
+        creditUsed: waiting ? 0 : Number(m.credit) || 0,
+        creditAfter: waiting ? 0 : r.credit,
+        by: 'admin',
+        date: fxToday(),
+        at: serverTimestamp()
+      });
+
+      if (!waiting) {
+        await updateDoc(doc(db, 'members', m._id), { credit: r.credit });
+      }
+
+      await fxRecalcFinance();
+      await reload();
+      say(waiting
+        ? 'Saved. It counts once its bank alert is matched.'
+        : 'Payment recorded for ' + m.id + ': ' + fxUnitsText(r.units, plan)
+          + (r.credit > 0 ? ', and ' + naira(r.credit) + ' carried forward.' : '.'));
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Record an unmatched alert as a donation to a project
+  async function fxAlertDonation(alertId) {
+    const a = S.fxAlerts.filter(function (x) { return x._id === alertId; })[0];
+    const projectBox = document.getElementById('fxdp_' + alertId);
+    const donorBox = document.getElementById('fxdn_' + alertId);
+    const pid = projectBox ? projectBox.value : '';
+    const p = S.proj.filter(function (x) { return x._id === pid; })[0];
+
+    if (!a || a.matchedTo) {
+      return say('This alert is already matched.');
+    }
+
+    if (!p) {
+      return say('Choose a project.');
+    }
+
+    const donor = donorBox && donorBox.value.trim() ? donorBox.value.trim() : a.sender;
+
+    try {
+      const ref = await addDoc(collection(db, 'donations'), {
+        donor: donor,
+        amount: a.amount,
+        pid: pid,
+        project: p.title,
+        method: 'bank',
+        status: 'confirmed',
+        paidBy: a.sender,
+        alertId: alertId,
+        at: serverTimestamp()
+      });
+
+      await updateDoc(doc(db, 'projects', pid), { raised: increment(Number(a.amount) || 0) });
+      await updateDoc(doc(db, 'alerts', alertId), { matchedTo: 'donation:' + ref.id });
+      await fxRecalcFinance();
+      await reload();
+      say('Recorded as a donation to ' + p.title + '.');
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Record an unmatched alert as dues for any member (whoever sent the money)
+  async function fxAlertDues(alertId) {
+    const a = S.fxAlerts.filter(function (x) { return x._id === alertId; })[0];
+    const sel = document.getElementById('fxdm_' + alertId);
+    const m = sel ? S.mem.filter(function (x) { return x._id === sel.value; })[0] : null;
+
+    if (!a || a.matchedTo) {
+      return say('This alert is already matched.');
+    }
+
+    if (!m) {
+      return say('Choose the member the dues are for.');
+    }
+
+    const plan = fxPlanOf(m);
+    const rate = fxUnitRate(plan);
+
+    if (!(rate > 0)) {
+      return say('Set the dues amounts first (Admin, Dues).');
+    }
+
+    const r = fxCreditSplit(m.credit, a.amount, rate);
+
+    try {
+      const ref = await addDoc(collection(db, 'dues'), {
+        uid: m.uid || m._id,
+        mid: m._id,
+        memberId: m.id,
+        name: m.name,
+        village: m.village || '',
+        plan: plan,
+        count: r.units,
+        months: r.units * (plan === 'yearly' ? 12 : 1),
+        amount: a.amount,
+        ref: a.narration || '',
+        receipt: '',
+        status: 'confirmed',
+        method: 'bank',
+        by: 'admin',
+        paidBy: a.sender,
+        alertId: alertId,
+        creditUsed: Number(m.credit) || 0,
+        creditAfter: r.credit,
+        date: a.date,
+        at: serverTimestamp()
+      });
+
+      await updateDoc(doc(db, 'members', m._id), { credit: r.credit });
+      await updateDoc(doc(db, 'alerts', alertId), { matchedTo: 'dues:' + ref.id });
+      await fxRecalcFinance();
+      await reload();
+      say('Dues recorded for ' + m.id + ': ' + fxUnitsText(r.units, plan)
+        + (r.credit > 0 ? ', and ' + naira(r.credit) + ' carried forward.' : '.'));
+    } catch (e) {
+      say(e.message);
+    }
+  }
+
+  // --- Adds the two fold-out forms to every unmatched alert card in a piece of HTML
+  function fxInjectAlertForms(html) {
+    const projectOptions = S.proj.map(function (p) {
+      return '<option value="' + esc(p._id) + '">' + esc(p.title) + '</option>';
+    }).join('');
+
+    S.fxAlerts.forEach(function (a) {
+      if (a.matchedTo) {
+        return;
+      }
+
+      const at = html.indexOf('id="fxm_' + a._id + '"');
+      const end = at < 0 ? -1 : html.indexOf('Delete</button></div>', at);
+
+      if (end < 0) {
+        return;
+      }
+
+      const insertAt = end + 'Delete</button></div>'.length;
+      const choices = fxMemberChoices(a.sender, '');
+      const first = choices[0] ? choices[0].m : null;
+
+      const forms =
+        '<details class="fxD"><summary>Record as donation</summary>'
+        + '<label>Project</label><select id="fxdp_' + a._id + '">' + projectOptions + '</select>'
+        + '<label>Donor name</label><input id="fxdn_' + a._id + '" value="' + esc(a.sender) + '">'
+        + '<button class="p" onclick="fxAlertDonation(\'' + a._id + '\')">Record as donation</button>'
+        + '</details>'
+        + '<details class="fxD"><summary>Record as dues</summary>'
+        + '<label>Search member</label><input id="fxq_' + a._id + '" placeholder="Name or ID" oninput="fxFilterMembers(\'' + a._id + '\')">'
+        + '<label>Member (best name matches first)</label>'
+        + '<select id="fxdm_' + a._id + '" onchange="fxDuesPreview(\'' + a._id + '\')">' + fxOptionsHtml(choices) + '</select>'
+        + '<div class="mute" id="fxv_' + a._id + '">' + esc(first ? fxPreviewText(a, first) : '') + '</div>'
+        + '<button class="p" onclick="fxAlertDues(\'' + a._id + '\')">Record as dues</button>'
+        + '</details>';
+
+      html = html.slice(0, insertAt) + forms + html.slice(insertAt);
+    });
+
+    return html;
+  }
+
+  // --- The search box above the alerts re-draws the cards, so keep the forms in them
+  window.fxRefreshAlerts = function () {
+    const box = $('fx_alert_list');
+
+    if (box) {
+      box.innerHTML = fxInjectAlertForms(fxAlertCardsHtml());
+    }
+  };
+
+  // --- Admin pages: alert forms on the Finance page, and no "months" box in Record a payment
+  const _adminCredit = window.admin;
+
+  window.admin = function () {
+    let h = _adminCredit();
+
+    if (!isAdmin()) {
+      return h;
+    }
+
+    if (S.tab === 'fxfin') {
+      h = fxInjectAlertForms(h);
+    }
+
+    if (S.tab === 'fxdues') {
+      h = h.replace(
+        '<label>Number of months (or years, for a yearly member)</label><input id="fx_rn" type="number" min="1" value="1">',
+        '<p class="mute">Months or years are worked out from the amount and the member\u2019s rate. Any extra is carried forward.</p>'
+      );
+    }
+
+    return h;
+  };
+
+  // --- Member receipt: handles payments that only added credit, and shows the amount carried forward
+  function fxDownloadReceiptCredit(id) {
+    const p = (S.fxMine || []).filter(function (x) { return x._id === id; })[0];
+
+    if (!p) {
+      return say('Receipt not found.');
+    }
+
+    const rows = [
+      ['Receipt no.', 'UZR-' + id.slice(-6).toUpperCase()],
+      ['Name', p.name || ''],
+      ['Member ID', p.memberId || ''],
+      ['Amount', naira(p.amount)],
+      ['Covers', Number(p.count) > 0 ? fxUnitsText(Number(p.count), p.plan) : 'Added to credit'],
+      ['Reference', p.ref || '-'],
+      ['Date', p.date || ''],
+      ['Status', 'Confirmed']
+    ];
+
+    if (Number(p.creditAfter) > 0) {
+      rows.push(['Carried forward', naira(p.creditAfter)]);
+    }
+
+    const c = document.createElement('canvas');
+
+    c.width = 800;
+    c.height = 620;
+
+    const x = c.getContext('2d');
+
+    const draw = function (logo) {
+      x.fillStyle = '#ffffff';
+      x.fillRect(0, 0, 800, 620);
+      x.fillStyle = '#0d4a1a';
+      x.fillRect(0, 0, 800, 120);
+
+      if (logo) {
+        const k = Math.min(90 / logo.width, 90 / logo.height);
+
+        x.drawImage(logo, 30, 15, logo.width * k, logo.height * k);
+      }
+
+      x.fillStyle = '#7ddc1f';
+      x.font = 'bold 40px sans-serif';
+      x.fillText('UZAIRUE', logo ? 140 : 30, 75);
+
+      x.fillStyle = '#0d4a1a';
+      x.font = 'bold 30px sans-serif';
+      x.fillText('PAYMENT RECEIPT', 30, 170);
+
+      rows.forEach(function (r, i) {
+        const y = 230 + i * 40;
+
+        x.fillStyle = '#5a6b82';
+        x.font = '20px sans-serif';
+        x.fillText(r[0], 30, y);
+        x.fillStyle = '#0f1b2d';
+        x.font = 'bold 22px sans-serif';
+        x.fillText(String(r[1]), 260, y);
+      });
+
+      x.fillStyle = '#5a6b82';
+      x.font = '16px sans-serif';
+      x.fillText('Thank you for supporting our community.', 30, 595);
+
+      const a = document.createElement('a');
+
+      a.href = c.toDataURL('image/png');
+      a.download = 'receipt-' + (p.memberId || 'uzairue') + '-' + id.slice(-6) + '.png';
+      a.click();
+    };
+
+    if (S.site && S.site.logo) {
+      const img = new Image();
+
+      img.onload = function () { draw(img); };
+      img.onerror = function () { draw(null); };
+      img.src = S.site.logo;
+    } else {
+      draw(null);
+    }
+  }
+
+  // --- Dues page for members: show the amount carried forward under the first card
+  const _renderCredit = window.render;
+
+  window.render = function () {
+    _renderCredit();
+
+    const app = $('app');
+
+    if (!app || S.view !== 'dues' || !S.user || !S.user.emailVerified || !S.me) {
+      return;
+    }
+
+    const credit = Number(S.me.credit) || 0;
+    const html = app.innerHTML;
+    const cardEnd = html.indexOf('</div></div>');
+
+    // The first card on the page is "Your dues"; its closing tags are the first "</div></div>"
+    if (credit > 0 && cardEnd >= 0) {
+      const at = cardEnd + '</div></div>'.length;
+      const card =
+        '<div class="card" style="margin-top:14px"><div class="mute">Carried forward</div>'
+        + '<div class="big">' + naira(credit) + '</div>'
+        + '<p class="mute">Added to your next payment.</p></div>';
+
+      app.innerHTML = html.slice(0, at) + card + html.slice(at);
+    }
+  };
+
+  // --- Replace the older versions, and give the new buttons a "working" label
+  window.fxMatchAlert = fxMatchAlertCredit;
+  window.fxConfirmCash = fxConfirmCashCredit;
+  window.fxReview = fxReviewCredit;
+  window.fxAdminRecord = fxRecordDuesCredit;
+  window.fxDownloadReceipt = fxDownloadReceiptCredit;
+
+  Object.assign(window, {
+    fxAlertDonation: fxAlertDonation,
+    fxAlertDues: fxAlertDues,
+    fxFilterMembers: fxFilterMembers,
+    fxDuesPreview: fxDuesPreview
+  });
+
+  [
+    ['fxMatchAlert', 'Matching...'],
+    ['fxConfirmCash', 'Saving...'],
+    ['fxReview', 'Updating...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxAlertDonation', 'Recording...'],
+    ['fxAlertDues', 'Recording...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
+
+
+
   
   // ------------------------------------------------------------
   // SECTION: Hook-up and start
