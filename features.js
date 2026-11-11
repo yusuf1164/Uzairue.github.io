@@ -2344,43 +2344,53 @@
   const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
   const warnings = [];
 
-  const credit = /\b(credit|credited|received|CR)\b/i.test(t);
-  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out)\b/i.test(t);
+  const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
+  // Added withdrawal/withdrawn/out to this block
+  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
 
   if (debit && !credit) {
-    return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
+    return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
   }
   if (!credit) {
     warnings.push('No credit keyword found — verify this is an incoming transfer.');
   }
 
+  // Amount
   const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
   const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
   if (!(amount > 0)) {
     warnings.push('Amount not found — enter it manually.');
   }
 
-  // Look for a date. Handles "Nov 10th, 2026", "10th Nov 2026", and "10/11/2026"
-let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
-if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
-if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-
-const date = dm ? fxParseDate(dm[1]) : '';
+  // Date
+  let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
+  if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
+  if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
+  
+  const date = dm ? fxParseDate(dm[1]) : '';
   if (!date) {
     warnings.push('Date not found — enter it manually.');
   }
 
-  // Look for sender. Try "from <name>" or "Name: <name>".
-  const fromMatch = t.match(/\bfrom\s+([A-Za-z][A-Za-z .'\-]{1,60})/i);
-  const nameMatch = t.match(/\b(?:Name|Sender|Payer)\s*:\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|$))/i);
-  
+  // Sender (Advanced)
   let sender = '';
-  if (fromMatch) {
-    sender = fromMatch[1].trim().toUpperCase();
-  } else if (nameMatch) {
-    sender = nameMatch[1].trim().toUpperCase();
-  }
+  // Try "Name:", "Sender:", "from", etc. Stop at Bank, Acct, Amount, Date, etc.
+  const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
   
+  if (senderMatch) {
+    sender = senderMatch[1].trim();
+  } else {
+    // Fallback: Grab the first line/chunk of text before the amount
+    const beforeAmt = t.substring(0, amt ? amt.index : 100);
+    const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
+    if (clean.length > 2 && clean.length < 40) {
+      sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+    }
+  }
+
+  // Clean up any leftover bank names from the sender string
+  sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
+
   if (!sender) {
     warnings.push('Sender not found — enter it manually.');
   }
@@ -2389,7 +2399,7 @@ const date = dm ? fxParseDate(dm[1]) : '';
     amount: amount,
     date: date,
     sender: sender,
-    narration: t.replace(/\d{4,}/g, '****'),
+    narration: t.replace(/\d{4,}/g, '****'), // Kept for the database, but hidden in UI
     warnings: warnings
   };
 }
@@ -2746,7 +2756,7 @@ const date = dm ? fxParseDate(dm[1]) : '';
       return '<div class="card">'
         + '<div class="big">' + naira(a.amount) + '</div>'
         + '<h3>' + esc(a.sender) + '</h3>'
-        + '<div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>'
+        + '<div class="mute">' + esc(a.date) + '</div>'
         + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
         + '</div>';
     }).join('') + '</div>';
@@ -2815,7 +2825,7 @@ const date = dm ? fxParseDate(dm[1]) : '';
     }).join('');
 
     const alertCards = S.fxAlerts.map(function (a) {
-      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>';
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div>';
 
       if (a.matchedTo) {
         return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
