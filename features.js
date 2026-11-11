@@ -2747,20 +2747,21 @@
   }
 
   // --- Lists of alerts and expenses (shared by members and admins)
-  function fxAlertsListHtml() {
-    if (!S.fxAlerts.length) {
-      return '<div class="card mute">No bank alerts yet.</div>';
-    }
-
-    return '<div class="grid">' + S.fxAlerts.map(function (a) {
-      return '<div class="card">'
-        + '<div class="big">' + naira(a.amount) + '</div>'
-        + '<h3>' + esc(a.sender) + '</h3>'
-        + '<div class="mute">' + esc(a.date) + '</div>'
-        + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
-        + '</div>';
-    }).join('') + '</div>';
+  // --- Lists of alerts and expenses (shared by members and admins)
+function fxAlertsListHtml() {
+  if (!S.fxAlerts.length) {
+    return '<div class="card mute">No bank alerts yet.</div>';
   }
+
+  return '<div class="grid">' + S.fxAlerts.map(function (a) {
+    return '<div class="card">'
+      + '<div class="big">' + naira(a.amount) + '</div>'
+      + '<h3>' + esc(a.sender) + '</h3>'
+      + '<div class="mute">' + esc(a.date) + '</div>'
+      + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
+      + '</div>';
+  }).join('') + '</div>';
+}
 
   function fxExpenseListHtml(admin) {
     if (!S.fxExp.length) {
@@ -2825,18 +2826,20 @@
     }).join('');
 
     const alertCards = S.fxAlerts.map(function (a) {
-      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + '</div>';
+  const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute" style="margin-bottom:8px">' + esc(a.date) + '</div>';
 
-      if (a.matchedTo) {
-        return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
-      }
+  if (a.matchedTo) {
+    return '<div class="card">' + head + '<span class="tag a" style="margin-bottom:8px">Matched</span>'
+      + '<div class="row"><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>'
+      + '</div>';
+  }
 
-      return '<div class="card">' + head
-        + '<label>Match to a waiting payment</label>'
-        + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
-        + '<div class="row"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button></div>'
-        + '</div>';
-    }).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
+  return '<div class="card">' + head
+    + '<label>Match to a waiting payment</label>'
+    + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
+    + '<div class="row" style="gap:8px"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>'
+    + '</div>';
+}).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
 
     const pendingCards = (S.fxAll || []).filter(function (p) {
       return p.status === 'pending';
