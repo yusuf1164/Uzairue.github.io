@@ -2469,14 +2469,32 @@
       say(e.message);
     }
   }
-
   // --- Admin: cancel the confirm step
-  function fxCancelAlert() {
-    S.fxDraft = '';
-    S.fxDraftParsed = null;
-    render();
-  }
+  //function fxCancelAlert() {
+   // S.fxDraft = '';
+  //  S.fxDraftParsed = null;
+   // render();
+ // }
 
+  // --- Admin: delete an alert
+async function fxDelAlert(id) {
+  if (!confirm('Delete this bank alert? This cannot be undone.')) {
+    return;
+  }
+  try {
+    await deleteDoc(doc(db, 'alerts', id));
+    await fxRecalcFinance();
+    await reload();
+    say('Alert deleted.');
+  } catch (e) {
+    say(e.message);
+  }
+}
+
+
+
+
+  
   // --- Admin: match an alert to a waiting bank donation or a pending dues payment
   async function fxMatchAlert(alertId) {
     const box = document.getElementById('fxm_' + alertId);
@@ -3008,32 +3026,33 @@ function fxAlertsListHtml() {
   };
 
   Object.assign(window, {
-    addDon: fxAddDonation,
-    fxAdminRecord: fxRecordDues,
-    fxParseAlertDraft: fxParseAlertDraft,
-    fxConfirmAlert: fxConfirmAlert,
-    fxCancelAlert: fxCancelAlert,
-    fxMatchAlert: fxMatchAlert,
-    fxConfirmCash: fxConfirmCash,
-    fxSaveExpense: fxSaveExpense,
-    fxDelExpense: fxDelExpense,
-    fxRecalcNow: fxRecalcNow,
-    fxDownloadReceipt: fxDownloadReceipt
-  });
+  addDon: fxAddDonation,
+  fxAdminRecord: fxRecordDues,
+  fxParseAlertDraft: fxParseAlertDraft,
+  fxConfirmAlert: fxConfirmAlert,
+  fxCancelAlert: fxCancelAlert,
+  fxDelAlert: fxDelAlert,
+  fxMatchAlert: fxMatchAlert,
+  fxConfirmCash: fxConfirmCash,
+  fxSaveExpense: fxSaveExpense,
+  fxDelExpense: fxDelExpense,
+  fxRecalcNow: fxRecalcNow,
+  fxDownloadReceipt: fxDownloadReceipt
+});
 
-  [
-    ['addDon', 'Recording...'],
-    ['fxAdminRecord', 'Recording...'],
-    ['fxConfirmAlert', 'Saving...'],
-    ['fxMatchAlert', 'Matching...'],
-    ['fxConfirmCash', 'Saving...'],
-    ['fxSaveExpense', 'Saving...'],
-    ['fxDelExpense', 'Deleting...'],
-    ['fxRecalcNow', 'Updating...']
-  ].forEach(function (pair) {
-    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
-  });
-
+[
+  ['addDon', 'Recording...'],
+  ['fxAdminRecord', 'Recording...'],
+  ['fxConfirmAlert', 'Saving...'],
+  ['fxDelAlert', 'Deleting...'],
+  ['fxMatchAlert', 'Matching...'],
+  ['fxConfirmCash', 'Saving...'],
+  ['fxSaveExpense', 'Saving...'],
+  ['fxDelExpense', 'Deleting...'],
+  ['fxRecalcNow', 'Updating...']
+].forEach(function (pair) {
+  window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+});
 
   
   // ------------------------------------------------------------
