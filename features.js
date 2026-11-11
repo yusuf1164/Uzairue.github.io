@@ -2167,7 +2167,7 @@
     window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
   });
 
-  // ------------------------------------------------------------
+    // ------------------------------------------------------------
   // FINANCE: BANK ALERTS, CASH, EXPENSES, BALANCE AND RECEIPTS
   // (paste above the "SECTION: Hook-up and start" part, after the gifts block)
   // What it does:
@@ -2191,8 +2191,6 @@
   S.fxAlerts = S.fxAlerts || [];
   S.fxExp = S.fxExp || [];
   S.fxDon = S.fxDon || [];
-  S.fxDraft = S.fxDraft || '';
-  S.fxDraftParsed = S.fxDraftParsed || null;
 
   // --- Newest first, by date text (YYYY-MM-DD)
   function fxNewestFirst(a, b) {
@@ -2285,166 +2283,67 @@
     }
   }
 
-  // --- Pads a number to two digits (used by date parsing)
-  function fxPad2(n) {
-    n = String(n);
-    return n.length < 2 ? '0' + n : n;
-  }
-
-  // --- Reads any common date format → "YYYY-MM-DD" (or '' if unreadable)
-  function fxParseDate(s) {
-  s = String(s || '').trim();
-  if (!s) return '';
-
-  // Remove ordinal suffixes like 1st, 2nd, 3rd, 10th
-  s = s.replace(/(\d+)(st|nd|rd|th)/gi, '$1');
-
-  // yyyy-mm-dd / yyyy/mm/dd / yyyy.mm.dd
-  let m = s.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})$/);
-  if (m) return m[1] + '-' + fxPad2(m[2]) + '-' + fxPad2(m[3]);
-
-  // dd-mm-yyyy / dd/mm/yyyy / dd-mm-yy
-  m = s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
-  if (m) {
-    let y = m[3];
-    if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-    return y + '-' + fxPad2(m[2]) + '-' + fxPad2(m[1]);
-  }
-
-  // 12-Jun-2026 / 12 Jun 2026 / 12/Jun/2026
-  m = s.match(/^(\d{1,2})[\/\-. ]+([A-Za-z]{3,})[\/\-. ,]+(\d{2,4})$/);
-  if (m) {
-    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[2].slice(0, 3).toLowerCase());
-    if (mo >= 0) {
-      let y = m[3];
-      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[1]);
-    }
-  }
-
-  // Nov 12, 2026 / Nov 12 2026
-  m = s.match(/^([A-Za-z]{3,})\s+(\d{1,2})[,\s]+(\d{2,4})$/);
-  if (m) {
-    const mo = MONTH_NAMES.map(function (x) { return x.toLowerCase(); }).indexOf(m[1].slice(0, 3).toLowerCase());
-    if (mo >= 0) {
-      let y = m[3];
-      if (y.length === 2) y = (Number(y) < 70 ? '20' : '19') + y;
-      return y + '-' + fxPad2(mo + 1) + '-' + fxPad2(m[2]);
-    }
-  }
-
-  return '';
-}
-
-  // --- Reads a credit alert (any bank / fintech) and returns pre-filled fields.
-  //     Returns { error } for a debit alert; otherwise returns
-  //     { amount, date, sender, narration, warnings[] } so the admin
-  //     can fix any blank or wrong field before saving.
+  // --- Reads a credit alert. Keeps only the fields we need and masks long numbers.
   function fxParseAlert(text) {
-  const t = String(text || '').replace(/\r/g, ' ').replace(/\s+/g, ' ').trim();
-  const warnings = [];
+    const t = String(text || '');
+    const grab = function (re) {
+      const m = t.match(re);
 
-  const credit = /\b(credit|credited|received|CR|transfer\s+from)\b/i.test(t);
-  // Added withdrawal/withdrawn/out to this block
-  const debit  = /\b(debit|debited|DR|withdrawal|withdrawn|out|transfer\s+to)\b/i.test(t);
+      return m ? m[1].trim() : '';
+    };
 
-  if (debit && !credit) {
-    return { error: 'This looks like a debit or withdrawal alert. Only credit alerts can be saved.' };
-  }
-  if (!credit) {
-    warnings.push('No credit keyword found — verify this is an incoming transfer.');
-  }
+    const txn = grab(/Txn:\s*([A-Za-z]+)/i).toLowerCase();
 
-  // Amount
-  const amt = t.match(/(?:₦|NGN|N)\s*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
-  const amount = amt ? Number(amt[1].replace(/,/g, '')) : 0;
-  if (!(amount > 0)) {
-    warnings.push('Amount not found — enter it manually.');
-  }
-
-  // Date
-  let dm = t.match(/\b([A-Za-z]{3,}\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{2,4})\b/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]{3,}\s*,?\s*\d{2,4})\b/i);
-  if (!dm) dm = t.match(/\b(\d{1,2}[\/\-.](?:\d{1,2}|[A-Za-z]{3})[\/\-.]\d{2,4})\b/);
-  
-  const date = dm ? fxParseDate(dm[1]) : '';
-  if (!date) {
-    warnings.push('Date not found — enter it manually.');
-  }
-
-  // Sender (Advanced)
-  let sender = '';
-  // Try "Name:", "Sender:", "from", etc. Stop at Bank, Acct, Amount, Date, etc.
-  const senderMatch = t.match(/(?:from|Name|Sender|Payer)\s*[:\-]?\s*([A-Za-z][A-Za-z .'\-]{1,60}?)(?=\s*(?:Bank|Acct|Account|Amount|Date|Ref|Transaction|on|$))/i);
-  
-  if (senderMatch) {
-    sender = senderMatch[1].trim();
-  } else {
-    // Fallback: Grab the first line/chunk of text before the amount
-    const beforeAmt = t.substring(0, amt ? amt.index : 100);
-    const clean = beforeAmt.replace(/(?:credit|alert|transfer|details|received|from)/gi, '').trim();
-    if (clean.length > 2 && clean.length < 40) {
-      sender = clean.replace(/[^A-Za-z0-9 .'\-]/g, '').trim();
+    if (['debit', 'dr'].indexOf(txn) >= 0) {
+      return { error: 'Debit alerts are ignored. Only credit alerts can be saved.' };
     }
+
+    if (['credit', 'cr'].indexOf(txn) < 0) {
+      return { error: 'Could not read the transaction type (Credit or CR).' };
+    }
+
+    const amount = Number(grab(/Amt:\s*([^\n]+)/i).replace(/[^0-9.]/g, ''));
+
+    if (!(amount > 0)) {
+      return { error: 'Could not find the amount in this alert.' };
+    }
+
+    const dateRaw = grab(/Date:\s*(\d{2}-\d{2}-\d{4})/i);
+
+    if (!dateRaw) {
+      return { error: 'Could not find the date in this alert.' };
+    }
+
+    const parts = dateRaw.split('-');
+    const des = grab(/Des:\s*([^\n]+)/i);
+
+    if (!des) {
+      return { error: 'Could not find the narration in this alert.' };
+    }
+
+    const nameMatch = des.match(/^([A-Za-z][A-Za-z .'-]*?)\s*(?=\d|$)/);
+
+    return {
+      amount: amount,
+      date: parts[2] + '-' + parts[1] + '-' + parts[0],
+      sender: (nameMatch ? nameMatch[1] : des).trim().toUpperCase(),
+      narration: des.replace(/\d{4,}/g, '****').trim()
+    };
   }
 
-  // Clean up any leftover bank names from the sender string
-  sender = sender.replace(/\b(BANK|OPAY|PALMPAY|MONIEPOINT|GTB|ZENITH|ACCESS|UBA|KUDA|CHIPPER|ACCOUNT|NUMBER|TRANSFER|ALERT|VALUE|DATE)\b/gi, '').replace(/\s+/g, ' ').trim().toUpperCase();
-
-  if (!sender) {
-    warnings.push('Sender not found — enter it manually.');
-  }
-
-  return {
-    amount: amount,
-    date: date,
-    sender: sender,
-    narration: t.replace(/\d{4,}/g, '****'), // Kept for the database, but hidden in UI
-    warnings: warnings
-  };
-}
-  // --- Admin: step 1 — read the pasted alert and show the confirm fields
-  function fxParseAlertDraft() {
+  // --- Admin: save a pasted alert (the pasted text itself is never stored)
+  async function fxSaveAlert() {
     const raw = $('fxp_text') ? $('fxp_text').value : '';
-
-    if (!raw.trim()) {
-      return say('Paste a bank alert first.');
-    }
 
     S.fxDraft = raw;
 
     const r = fxParseAlert(raw);
 
     if (r.error) {
-      S.fxDraftParsed = null;
       return say(r.error);
     }
 
-    S.fxDraftParsed = r;
-
-    if (r.warnings && r.warnings.length) {
-      S.msg = r.warnings.join(' ');
-    } else {
-      S.msg = 'Looks good — tap Save alert.';
-    }
-
-    render();
-  }
-
-  // --- Admin: step 2 — save the (possibly corrected) values
-  async function fxConfirmAlert() {
-    const amount = Number(v('fxp_amount'));
-    const date = v('fxp_date');
-    const sender = v('fxp_sender');
-    const narration = S.fxDraftParsed
-      ? S.fxDraftParsed.narration
-      : (S.fxDraft || '').replace(/\d{4,}/g, '****');
-
-    if (!(amount > 0)) return say('Enter the amount.');
-    if (!date)        return say('Enter the date.');
-    if (!sender)      return say('Enter the sender.');
-
-    const key = [date, amount, sender, narration].join('|');
+    const key = [r.date, r.amount, r.sender, r.narration].join('|');
 
     if (S.fxAlerts.some(function (a) { return a.key === key; })) {
       return say('This alert is already saved, so it was not added twice.');
@@ -2452,16 +2351,15 @@
 
     try {
       await addDoc(collection(db, 'alerts'), {
-        date: date,
-        amount: amount,
-        sender: sender,
-        narration: narration,
+        date: r.date,
+        amount: r.amount,
+        sender: r.sender,
+        narration: r.narration,
         key: key,
         matchedTo: '',
         at: serverTimestamp()
       });
       S.fxDraft = '';
-      S.fxDraftParsed = null;
       await fxRecalcFinance();
       await reload();
       say('Bank alert saved.');
@@ -2469,32 +2367,7 @@
       say(e.message);
     }
   }
-  // --- Admin: cancel the confirm step
-  //function fxCancelAlert() {
-   // S.fxDraft = '';
-  //  S.fxDraftParsed = null;
-   // render();
- // }
 
-  // --- Admin: delete an alert
-async function fxDelAlert(id) {
-  if (!confirm('Delete this bank alert? This cannot be undone.')) {
-    return;
-  }
-  try {
-    await deleteDoc(doc(db, 'alerts', id));
-    await fxRecalcFinance();
-    await reload();
-    say('Alert deleted.');
-  } catch (e) {
-    say(e.message);
-  }
-}
-
-
-
-
-  
   // --- Admin: match an alert to a waiting bank donation or a pending dues payment
   async function fxMatchAlert(alertId) {
     const box = document.getElementById('fxm_' + alertId);
@@ -2765,21 +2638,20 @@ async function fxDelAlert(id) {
   }
 
   // --- Lists of alerts and expenses (shared by members and admins)
-  // --- Lists of alerts and expenses (shared by members and admins)
-function fxAlertsListHtml() {
-  if (!S.fxAlerts.length) {
-    return '<div class="card mute">No bank alerts yet.</div>';
-  }
+  function fxAlertsListHtml() {
+    if (!S.fxAlerts.length) {
+      return '<div class="card mute">No bank alerts yet.</div>';
+    }
 
-  return '<div class="grid">' + S.fxAlerts.map(function (a) {
-    return '<div class="card">'
-      + '<div class="big">' + naira(a.amount) + '</div>'
-      + '<h3>' + esc(a.sender) + '</h3>'
-      + '<div class="mute">' + esc(a.date) + '</div>'
-      + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
-      + '</div>';
-  }).join('') + '</div>';
-}
+    return '<div class="grid">' + S.fxAlerts.map(function (a) {
+      return '<div class="card">'
+        + '<div class="big">' + naira(a.amount) + '</div>'
+        + '<h3>' + esc(a.sender) + '</h3>'
+        + '<div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>'
+        + '<span class="tag ' + (a.matchedTo ? 'a' : '') + '">' + (a.matchedTo ? 'Matched' : 'Not yet matched') + '</span>'
+        + '</div>';
+    }).join('') + '</div>';
+  }
 
   function fxExpenseListHtml(admin) {
     if (!S.fxExp.length) {
@@ -2844,20 +2716,18 @@ function fxAlertsListHtml() {
     }).join('');
 
     const alertCards = S.fxAlerts.map(function (a) {
-  const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute" style="margin-bottom:8px">' + esc(a.date) + '</div>';
+      const head = '<div class="big">' + naira(a.amount) + '</div><h3>' + esc(a.sender) + '</h3><div class="mute">' + esc(a.date) + ' · ' + esc(a.narration) + '</div>';
 
-  if (a.matchedTo) {
-    return '<div class="card">' + head + '<span class="tag a" style="margin-bottom:8px">Matched</span>'
-      + '<div class="row"><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>'
-      + '</div>';
-  }
+      if (a.matchedTo) {
+        return '<div class="card">' + head + '<span class="tag a">Matched</span></div>';
+      }
 
-  return '<div class="card">' + head
-    + '<label>Match to a waiting payment</label>'
-    + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
-    + '<div class="row" style="gap:8px"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button><button class="d" onclick="fxDelAlert(\'' + a._id + '\')">Delete</button></div>'
-    + '</div>';
-}).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
+      return '<div class="card">' + head
+        + '<label>Match to a waiting payment</label>'
+        + '<select id="fxm_' + a._id + '"><option value="">Choose...</option>' + opts + '</select>'
+        + '<div class="row"><button class="p" onclick="fxMatchAlert(\'' + a._id + '\')">Match</button></div>'
+        + '</div>';
+    }).join('') || '<div class="card mute">No bank alerts saved yet.</div>';
 
     const pendingCards = (S.fxAll || []).filter(function (p) {
       return p.status === 'pending';
@@ -2867,38 +2737,12 @@ function fxAlertsListHtml() {
         + '<div class="row"><button onclick="fxConfirmCash(\'' + p._id + '\')">Confirm as cash</button></div></div>';
     }).join('') || '<div class="card mute">No member payments waiting.</div>';
 
-    // Bank alert: paste → read → confirm → save
-    let pasteBlock = '<div class="card"><h3>Paste a bank alert</h3>'
-      + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
-      + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
-      + '<button class="p" onclick="fxParseAlertDraft()">Read alert</button>';
-
-    if (S.fxDraftParsed) {
-      const w = (S.fxDraftParsed.warnings || []);
-      pasteBlock += '<div class="card" style="margin-top:14px;border-color:var(--acc)">'
-        + '<h3>Check the details</h3>'
-        + (w.length
-            ? '<div class="msg">' + esc(w.join(' ')) + '</div>'
-            : '<p class="mute">Looks good. Fix any field that is wrong, then tap Save alert.</p>')
-        + '<label>Amount (₦)</label>'
-        + '<input id="fxp_amount" type="number" value="' + esc(S.fxDraftParsed.amount || '') + '">'
-        + '<label>Date</label>'
-        + '<input id="fxp_date" type="date" value="' + esc(S.fxDraftParsed.date || '') + '">'
-        + '<label>Sender</label>'
-        + '<input id="fxp_sender" value="' + esc(S.fxDraftParsed.sender || '') + '">'
-        + '<label>Narration (from the pasted text)</label>'
-        + '<input readonly value="' + esc(S.fxDraftParsed.narration || '') + '">'
-        + '<div class="row">'
-        + '<button class="p" onclick="fxConfirmAlert()">Save alert</button>'
-        + '<button onclick="fxCancelAlert()">Cancel</button>'
-        + '</div></div>';
-    }
-
-    pasteBlock += '</div>';
-
     return '<div class="row"><button onclick="S.tab=\'dash\';render()">← Back to Admin</button></div>'
       + '<h2>Finance</h2>'
-      + pasteBlock
+      + '<div class="card"><h3>Paste a bank alert</h3>'
+      + '<p class="mute">Paste a credit alert. Only the amount, date, sender and masked narration are saved. The full text is never stored.</p>'
+      + '<textarea id="fxp_text" rows="5">' + esc(S.fxDraft || '') + '</textarea>'
+      + '<button class="p" onclick="fxSaveAlert()">Save bank alert</button></div>'
       + '<h2>Bank alerts</h2><div class="grid">' + alertCards + '</div>'
       + '<h2>Member payments waiting</h2><div class="grid">' + pendingCards + '</div>'
       + '<div class="card" style="margin-top:14px"><h3>Record an expense</h3>'
@@ -2909,9 +2753,7 @@ function fxAlertsListHtml() {
       + '<label>Receipt photo (optional)</label><input type="file" accept="image/*" onchange="fxPick(this,\'exp\',800)"><img id="pv_exp" class="pv" style="display:none">'
       + '<button class="p" onclick="fxSaveExpense()">Save expense</button></div>'
       + '<h2>Expenses</h2>' + fxExpenseListHtml(true)
-      + '<div class="card" style="margin-top:14px"><h3>Totals</h3>'
-      + '<p class="mute">Totals update automatically. Use this if they look out of date.</p>'
-      + '<button class="p" style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button></div>';
+      + '<button style="margin-top:14px" onclick="fxRecalcNow()">Recalculate totals</button>';
   }
 
   // --- Render: Finance page, and the total and receipts on the member's Dues page
@@ -3026,33 +2868,31 @@ function fxAlertsListHtml() {
   };
 
   Object.assign(window, {
-  addDon: fxAddDonation,
-  fxAdminRecord: fxRecordDues,
-  fxParseAlertDraft: fxParseAlertDraft,
-  fxConfirmAlert: fxConfirmAlert,
-  fxCancelAlert: fxCancelAlert,
-  fxDelAlert: fxDelAlert,
-  fxMatchAlert: fxMatchAlert,
-  fxConfirmCash: fxConfirmCash,
-  fxSaveExpense: fxSaveExpense,
-  fxDelExpense: fxDelExpense,
-  fxRecalcNow: fxRecalcNow,
-  fxDownloadReceipt: fxDownloadReceipt
-});
+    addDon: fxAddDonation,
+    fxAdminRecord: fxRecordDues,
+    fxSaveAlert: fxSaveAlert,
+    fxMatchAlert: fxMatchAlert,
+    fxConfirmCash: fxConfirmCash,
+    fxSaveExpense: fxSaveExpense,
+    fxDelExpense: fxDelExpense,
+    fxRecalcNow: fxRecalcNow,
+    fxDownloadReceipt: fxDownloadReceipt
+  });
 
-[
-  ['addDon', 'Recording...'],
-  ['fxAdminRecord', 'Recording...'],
-  ['fxConfirmAlert', 'Saving...'],
-  ['fxDelAlert', 'Deleting...'],
-  ['fxMatchAlert', 'Matching...'],
-  ['fxConfirmCash', 'Saving...'],
-  ['fxSaveExpense', 'Saving...'],
-  ['fxDelExpense', 'Deleting...'],
-  ['fxRecalcNow', 'Updating...']
-].forEach(function (pair) {
-  window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
-});
+  [
+    ['addDon', 'Recording...'],
+    ['fxAdminRecord', 'Recording...'],
+    ['fxSaveAlert', 'Saving...'],
+    ['fxMatchAlert', 'Matching...'],
+    ['fxConfirmCash', 'Saving...'],
+    ['fxSaveExpense', 'Saving...'],
+    ['fxDelExpense', 'Deleting...'],
+    ['fxRecalcNow', 'Updating...']
+  ].forEach(function (pair) {
+    window[pair[0]] = busyWrap(window[pair[0]], pair[1]);
+  });
+
+
 
   
   // ------------------------------------------------------------
