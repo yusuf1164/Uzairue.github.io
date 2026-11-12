@@ -11,8 +11,7 @@
   //S.news.forEach(n=>{h+='<div class="card">'+(ok(n.img)?'<img class="thumb" src="'+esc(n.img)+'" alt="">':'')+'<h3>'+esc(n.title)+'</h3><p>'+esc(n.body)+'</p></div>'});
   //h+='</div><h2 id="projects">Projects &amp; Progress</h2><div class="grid">';
   //if(!S.proj.length)h+='<div class="card mute">No projects yet.</div>';
-  //S.proj.forEach(p=>{h+='<div class="card"><h3>'+esc(p.title)+'</h3><p class="mute">'+esc(p.body)+'</p><div class="bar"><i style="width:'+pct(p)+'%"></i></div><div class="mute">'+pct(p)+'% · ₦'+(p.raised||0).toLocaleString()+' of ₦'+(p.target||0).toLocaleString()+'</div>'+(ok(p.link)?'<div class="row"><a class="btn p" href="'+esc(p.link)+'" target="_blank" rel="noopener">Donate</a></div>':'')+'</div>'});
-  //return <--h+'</div><h2 id="donate">Support the community</h2><div class="card">Every contribution moves a project forward. Use the Donate button on any project above.</div>'}--!>
+  //S.proj.forEach(p=>{h+='<div class="card"><h3>'+esc(p.title)+'</h3><p class="mute">'+esc(p.body)+'</p><div class="bar"><i style="width:'+pct(p)+'%"></i></div><div class="mute">'+pct(p)+'% · ₦'+(p.raised||0).toLocaleString()+' of ₦'+(p.target||0).toLocaleString()+'</div>'+(ok(p.link)?'<div class="row"><a class="btn p" href="'+esc(p.link)+'" target="_blank" rel="noopener">Donate</a></div>':'')+'</div>'});!>
 // ------------------------------------------------------------
 // SECTION: Council page (members only)
 // What it does: Shows the King of Uzairue at the top, then the king's entourage, then each
