@@ -21,8 +21,15 @@
   </header>
 
   <!-- PAGE AREA: app.js draws the current page here. -->
-  <main id="app"></main>
-
+  <main id="app">
+  <!-- LOADING: This shows immediately and disappears when the app renders -->
+  <div id="loading-screen" style="text-align:center; padding: 60px 20px; color: var(--mute);">
+    <div class="spinner"></div>
+    <h3>Loading UZAIRUE...</h3>
+    <p class="mute">Connecting to the community...</p>
+  </div>
+</main>
+  
   <!-- SCRIPTS (order matters): config, firebase, core, auth, public, member, admin, app. Each file explains itself at the top. -->
   <script defer src="config.js"></script>
   <script type="module" src="firebase.js"></script>
