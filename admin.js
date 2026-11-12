@@ -16,12 +16,14 @@ function memCards(){
     '<div class="card mem">'
     + av(m)
     + '<h3>' + esc(m.name) + '</h3>'
-    + '<div class="mute">'
-      + esc(m.id) + ' · ' + esc(m.village) + '<br>'
-      + esc(m.email || 'No email (admin-managed)')
-    + '</div>'
-    + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
-    + '<span class="tag">' + (m.status || 'active') + '</span>'
+   + '<div class="mute">'
+  + esc(m.id) + ' · ' + esc(m.village) + '<br>'
+  + esc(m.email || 'No email (admin-managed)')
+  + '</div>'
+  + '<div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px">'
+  + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
+  + '<span class="tag">' + (m.status || 'active') + '</span>'
++ '</div>'
     + '<div class="row" style="justify-content:center">'
       + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
       + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
