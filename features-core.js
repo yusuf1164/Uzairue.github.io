@@ -156,7 +156,7 @@ window.drawCard = async function (m, id) {
   // faint logo background
   x.save(); x.globalAlpha = 0.07;
   if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 120px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
+  else { x.fillStyle = LIME; x.font = 'bold 110px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
   x.restore();
   // name (wraps to 3 lines), title, divider
   x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
