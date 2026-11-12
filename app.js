@@ -224,7 +224,14 @@ if(cfgOk){
     }
 
     await reload();
+    
+    // NEW: Hide the loading spinner once everything is loaded
+    const loader = document.getElementById('loading-screen');
+    if(loader) loader.remove();
   });
 } else {
+  // NEW: Hide the spinner even if Firebase config is missing
+  const loader = document.getElementById('loading-screen');
+  if(loader) loader.remove();
   render();
 }
