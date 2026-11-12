@@ -106,10 +106,11 @@ label{font-size:14px;color:var(--mute)}
 .mem .av{margin:0 auto 8px;width:84px;height:84px}
 
 /* TAGS: small pills such as admin, active and King. */
-.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;
-     background:var(--soft);color:var(--mute)}
-.tag.a{background:var(--acc);color:var(--accink)}
-
+.tag{
+  display:inline-block;font-size:12px;padding:4px 12px;
+  border-radius:99px;background:var(--soft);
+  color:var(--mute);width:auto;align-self:center;margin:2px;
+}
 /* PROGRESS BAR: project funding bar and its fill. */
 .bar{height:10px;border-radius:99px;background:var(--soft);overflow:hidden;margin:8px 0 4px}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));
