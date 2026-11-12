@@ -123,7 +123,10 @@ window.home = function () {
   h += '</div><h2 id="projects">Projects &amp; Progress</h2><div class="grid">';
   if (!S.proj.length) h += '<div class="card mute">No projects yet.</div>';
   S.proj.forEach(function (p) {
-    h += '<div class="card">' + (imgOk(p.img) ? '<img class="thumb" src="' + esc(p.img) + '" alt="">' : '') + '<h3>' + esc(p.title) + '</h3><p class="mute">' + esc(p.body) + '</p><div class="bar"><i style="width:' + pct(p) + '%"></i></div><div class="mute">' + pct(p) + '% · ₦' + (p.raised || 0).toLocaleString() + ' of ₦' + (p.target || 0).toLocaleString() + '</div><div class="row"><button class="p" onclick="fxDonate(\'' + p._id + '\')">Donate</button></div></div>';
+    h += '<div class="card">' + (imgOk(p.img) ? '<img class="thumb" src="' + esc(p.img) + '" alt="">' : '') 
+      + '<h3>' + esc(p.title) + '</h3><p class="mute">' + esc(p.body) + '</p><div class="bar"><i style="width:' + pct(p) 
+      + '%"></i></div><div class="mute">' + pct(p) + '% · ₦' + (p.raised || 0).toLocaleString() + ' of ₦' + (p.target || 0).toLocaleString() 
+      + '</div><div class="row"><button class="p" onclick="fxDonate(\'' + p._id + '\')">Donate</button></div></div>';
   });
   h += '</div><h2 id="donate">Support the community</h2><div class="card">' + (imgOk(s.donImg) ? '<img class="donimg" src="' + esc(s.donImg) + '" alt="">' : '') + '<p>Every contribution moves a project forward.</p>' + acctHtml(acctOf(null)) + '</div>';
   return h;
@@ -153,7 +156,7 @@ window.drawCard = async function (m, id) {
   // faint logo background
   x.save(); x.globalAlpha = 0.07;
   if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 140px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
+  else { x.fillStyle = LIME; x.font = 'bold 130px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
   x.restore();
   // name (wraps to 3 lines), title, divider
   x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
@@ -181,7 +184,7 @@ window.drawCard = async function (m, id) {
   // right panel: logo and title
   x.textAlign = 'center';
   if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 75, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 170); }
+  else { x.fillStyle = LIME; x.font = 'bold 33px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 170); }
   x.fillStyle = LIME; x.font = 'bold 46px sans-serif'; x.fillText('UZAIRUE', 840, 335);
   x.fillStyle = PALE; x.font = 'bold 32px sans-serif'; x.fillText('COMMUNITY CARD', 840, 380);
   // QR code (holds the member ID)
