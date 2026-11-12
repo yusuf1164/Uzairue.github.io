@@ -153,7 +153,7 @@ window.drawCard = async function (m, id) {
   // faint logo background
   x.save(); x.globalAlpha = 0.07;
   if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 150px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
+  else { x.fillStyle = LIME; x.font = 'bold 140px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
   x.restore();
   // name (wraps to 3 lines), title, divider
   x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
@@ -181,7 +181,7 @@ window.drawCard = async function (m, id) {
   // right panel: logo and title
   x.textAlign = 'center';
   if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 75, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 56px sans-serif'; x.fillText('UZAIRUE', 840, 170); }
+  else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 170); }
   x.fillStyle = LIME; x.font = 'bold 46px sans-serif'; x.fillText('UZAIRUE', 840, 335);
   x.fillStyle = PALE; x.font = 'bold 32px sans-serif'; x.fillText('COMMUNITY CARD', 840, 380);
   // QR code (holds the member ID)
