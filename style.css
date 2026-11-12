@@ -149,3 +149,23 @@ button:disabled{opacity:.6;cursor:wait}
 .tile:hover{transform:translateY(-2px);box-shadow:0 0 22px var(--glow2)}
 .tile .ic{font-size:28px;line-height:1;margin-bottom:6px}
 .tile .big{margin-top:8px}
+
+
+
+
+
+
+
+
+/* FIX: Force adjacent tags to sit side-by-side */
+.tag + .tag {
+  margin-left: 6px;
+}
+
+/* Change the tags to sit inline and reset the flex stretching */
+.tag {
+  display: inline-block;
+  width: auto;
+  align-self: center;
+  margin: 2px 0;
+}
