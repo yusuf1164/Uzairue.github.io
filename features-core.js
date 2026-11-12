@@ -55,7 +55,7 @@ function rr(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w
 S.site = S.site || {};
 function applyLogo() {
   const l = document.querySelector('.logo'); if (!l) return;
-  l.innerHTML = (S.site.logo ? '<img src="' + esc(S.site.logo) + '" alt="" style="height:30px;vertical-align:middle;margin-right:8px;border-radius:6px">' : '') + 'UZAIRUE COMMUNITY';
+  l.innerHTML = (S.site.logo ? '<img src="' + esc(S.site.logo) + '" alt="" style="height:30px;vertical-align:middle;margin-right:8px;border-radius:6px">' : '') + 'UZAIRUE KINGDOM';
 }
 async function loadSite() {
   if (!cfgOk) return;
