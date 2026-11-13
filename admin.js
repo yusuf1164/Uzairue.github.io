@@ -1,8 +1,6 @@
 // Admin panel and admin actions (members, villages, council, news, projects, donations).
 // ------------------------------------------------------------
 // SECTION: Admin: member cards
-// What it does: Builds the member cards, filtered by the search box and village dropdown.
-//    Each card has ID card, Revoke/Restore, Re-issue ID, role and Remove buttons.
 // ------------------------------------------------------------
 function memCards(){
   const q = S.q.toLowerCase();
@@ -16,14 +14,14 @@ function memCards(){
     '<div class="card mem">'
     + av(m)
     + '<h3>' + esc(m.name) + '</h3>'
-   + '<div class="mute">'
-  + esc(m.id) + ' · ' + esc(m.village) + '<br>'
-  + esc(m.email || 'No email (admin-managed)')
-  + '</div>'
-  + '<div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px">'
-  + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
-  + '<span class="tag">' + (m.status || 'active') + '</span>'
-+ '</div>'
+    + '<div class="mute">'
+      + esc(m.id) + ' · ' + esc(m.village) + '<br>'
+      + esc(m.email || 'No email (admin-managed)')
+    + '</div>'
+    + '<div style="display:flex; gap:6px; justify-content:center; margin-bottom:8px">'
+      + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
+      + '<span class="tag">' + (m.status || 'active') + '</span>'
+    + '</div>'
     + '<div class="row" style="justify-content:center">'
       + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
       + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
@@ -42,9 +40,6 @@ function memCards(){
 
 // ------------------------------------------------------------
 // SECTION: Admin page
-// What it does: Shows summary numbers and a grid of cards. Tapping a card hides the grid
-//    and opens that section (Members, Villages, Council, News, Projects, Donations) with a
-//    Back button.
 // ------------------------------------------------------------
 function admin(){
   if(!isAdmin()) return '<div class="card">Admins only.</div>';
@@ -124,17 +119,11 @@ function admin(){
       + '<label>Full name</label><input id="an">'
       + '<label>Mobile</label><input id="ap">'
       + '<label>address</label><input id="ah">'
-      + '<label>Village / Town</label><select id="av">' 
-      + vopts()
-      + '</select>'
-      
-      
+      + '<label>Village / Town</label><select id="av">' + vopts() + '</select>'
       + '<label>Email (optional)</label><input id="ae" type="email">'
       + '<label>Photo</label><input type="file" accept="image/*" onchange="pick(this)">'
       + '<button class="p" id="abtn" onclick="submitMember()">Register</button>'
       + '</div>'
-
-      
       + '<h2>Directory</h2>'
       + '<input placeholder="Search name, ID or email" oninput="S.q=this.value;$(\'ml\').innerHTML=memCards()">'
       + '<select onchange="S.vf=this.value;$(\'ml\').innerHTML=memCards()">'
@@ -153,10 +142,8 @@ function admin(){
       + '<div class="grid">'
       + S.vil.map(x =>
           '<div class="card">'
-        + '<h3 class ="card">' + esc(x.name) + '</h3>'
-        + '<div>'
-        + ' Kingdom of Uzairue'
-        + '</div>'
+          + '<h3 class="card">' + esc(x.name) + '</h3>'
+          + '<div>Kingdom of Uzairue</div>'
           + '<button class="d" onclick="del(\'villages\',\'' + x._id + '\')">Delete</button>'
           + '</div>'
         ).join('')
@@ -269,8 +256,6 @@ function admin(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: register member
-// What it does: Creates a member record (no login) with the next ID. Used for people
-//    without an email.
 // ------------------------------------------------------------
 async function addMember(){
   const n = v('an');
@@ -301,7 +286,6 @@ async function addMember(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: add an item
-// What it does: Saves a new village, news item or project to the database, then refreshes.
 // ------------------------------------------------------------
 async function addSimple(c, d, k){
   if(!v(k)) return say('Please fill in the first field.');
@@ -315,8 +299,6 @@ async function addSimple(c, d, k){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: add council member
-// What it does: Saves a council entry: name, title, level (kingdom or village), rank,
-//    optional linked member ID and photo.
 // ------------------------------------------------------------
 async function addCouncil(){
   if(!v('cn') || !v('ct')) return say('Name and title are required.');
@@ -338,8 +320,6 @@ async function addCouncil(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: log a donation
-// What it does: Records a donation and adds the amount to the chosen project's raised
-//    total.
 // ------------------------------------------------------------
 async function addDon(){
   const a = +v('da'),
@@ -365,7 +345,6 @@ async function addDon(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: set project target
-// What it does: Asks for a new target amount and saves it.
 // ------------------------------------------------------------
 async function editTarget(id, t){
   const n = prompt('Target amount (₦)', t);
@@ -376,8 +355,6 @@ async function editTarget(id, t){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: delete
-// What it does: Deletes a member, village, council entry, news item or project after asking
-//    to confirm.
 // ------------------------------------------------------------
 async function del(c, id){
   if(!confirm('Delete this?')) return;
@@ -387,7 +364,6 @@ async function del(c, id){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: change role or status
-// What it does: Flips a member between member/admin or active/revoked.
 // ------------------------------------------------------------
 async function toggle(id, f){
   const m = S.mem.filter(x => x._id === id)[0],
@@ -400,7 +376,6 @@ async function toggle(id, f){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: re-issue ID
-// What it does: Gives a member a brand-new ID and sets them active.
 // ------------------------------------------------------------
 async function reissue(id){
   if(!confirm('Give this member a new ID?')) return;
@@ -411,7 +386,6 @@ async function reissue(id){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: view a member's ID card
-// What it does: Opens the Profile page showing the chosen member's card.
 // ------------------------------------------------------------
 function showCard(id){
   S.card = S.mem.filter(x => x._id === id)[0];
@@ -421,7 +395,6 @@ function showCard(id){
 
 // ------------------------------------------------------------
 // SECTION: Admin: look up a member by ID
-// What it does: Finds a member by ID and fills the form so they can be edited.
 // ------------------------------------------------------------
 function lookupId(){
   const q = v('aid').toUpperCase(),
@@ -456,8 +429,6 @@ function lookupId(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: register or save
-// What it does: Saves changes if a member was found by ID, otherwise registers a new
-//    member.
 // ------------------------------------------------------------
 async function submitMember(){
   return S.editId ? saveMember() : addMember();
@@ -465,8 +436,6 @@ async function submitMember(){
 
 // ------------------------------------------------------------
 // SECTION: Admin action: save member edits
-// What it does: Updates the chosen member's name, phone, house number, village (and email
-//    for admin-registered members).
 // ------------------------------------------------------------
 async function saveMember(){
   const m = S.mem.filter(x => x._id === S.editId)[0];
@@ -494,4 +463,3 @@ async function saveMember(){
     say(e.message);
   }
 }
-
