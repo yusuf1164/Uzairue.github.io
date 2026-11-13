@@ -249,6 +249,7 @@ const pct = p =>
     ? Math.min(100, Math.round((p.raised || 0) / p.target * 100))
     : 0;
 
+
 // ------------------------------------------------------------
 // SECTION: Photo picker
 // What it does: Reads a chosen image, crops it square, shrinks it to 160px and keeps it. On
