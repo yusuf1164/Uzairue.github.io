@@ -164,13 +164,17 @@ async function loadPub(){
 
 // ------------------------------------------------------------
 // SECTION: Data: load admin content
-// What it does: Loads the full member list and the donation log. Used for admins only.
+// What it does: Loads the 50 newest members (to prevent crashing at 100k members) 
+//    and the donation log. Used for admins only.
 // ------------------------------------------------------------
 async function loadAdmin(){
-  S.mem = await list('members', 'createdAt');
+  // We use the 'limit' function to only fetch 50 members at a time.
+  const memQuery = query(collection(db, 'members'), orderBy('createdAt', 'desc'), limit(20));
+  const memSnap = await getDocs(memQuery);
+  
+  S.mem = memSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
   S.don = (await list('donations', 'at')).reverse();
 }
-
 // ------------------------------------------------------------
 // SECTION: Data: refresh everything
 // What it does: Reloads public data (and admin data for admins), then redraws the page.
