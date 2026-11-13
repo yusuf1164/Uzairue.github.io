@@ -46,59 +46,19 @@ async function doLogin(){
 }
 
 // ------------------------------------------------------------
-// SECTION: Action: sign up
-// What it does: Creates the Firebase account, gives the member the next ID, saves their
-//    details, emails a verification link and opens the verify page.
+// SECTION: Action: log in
+// What it does: Signs in with the typed email and password through Firebase. Shows an error
+//    message if they are wrong.
 // ------------------------------------------------------------
-async function doSignup(){
-  const n = v('sn'),
-        e = v('se'),
-        p = $('sp').value;
-
-  if(!n || !e || p.length < 6)
-    return say('Name, email and a 6+ character password are required.');
-
+async function doLogin(){
   try{
-    const c  = await createUserWithEmailAndPassword(auth, e, p),
-          id = await nextId();
-
-    await setDoc(doc(db, 'members', c.user.uid), {
-      id,
-      name: n,
-      email: e,
-      phone: v('sm'),
-      address: v('sh'),
-      village: v('sv'),
-      role: 'member',
-      status: 'active',
-      img: S.img,
-      createdAt: serverTimestamp()
-    });
-
-    S.me = {
-      _id: c.user.uid,
-      id,
-      name: n,
-      email: e,
-      phone: v('sm'),
-      address: v('sh'),
-      village: v('sv'),
-      role: 'member',
-      status: 'active',
-      img: S.img
-    };
-
-    try{
-      await sendEmailVerification(c.user);
-    } catch(e){}
-
-    S.img = '';
-    S.view = 'verify';
-    S.msg = 'Account created. We sent a verification link to your email.';
-    await loadPub();
-    render();
-  } catch(x){
-    say(x.message);
+    await signInWithEmailAndPassword(auth, v('le'), $('lp').value);
+    S.view = 'home';
+    S.msg = '';
+    // Force the app to immediately redraw and go to the home page
+    render(); 
+  } catch(e){
+    say('Login failed: check your email and password.');
   }
 }
 
