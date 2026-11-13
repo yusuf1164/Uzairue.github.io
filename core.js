@@ -164,17 +164,22 @@ async function loadPub(){
 
 // ------------------------------------------------------------
 // SECTION: Data: load admin content
-// What it does: Loads the 20 newest members (to prevent crashing at 100k members) 
-//    and the donation log. Used for admins only.
+// What it does: Loads the member list and the donation log. Used for admins only.
 // ------------------------------------------------------------
 async function loadAdmin(){
-  // We removed orderBy('createdAt') because older members might not have that field.
-  // This just loads the first 20 members safely.
-  const memQuery = query(collection(db, 'members'), limit(20));
-  const memSnap = await getDocs(memQuery);
-  
-  S.mem = memSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
-  S.don = (await list('donations', 'at')).reverse();
+  try {
+    // 1. Fetch members safely without strict ordering (prevents 0 results bug)
+    const memSnap = await getDocs(collection(db, 'members'));
+    S.mem = memSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    
+    // 2. Sort them in JavaScript instead of Firebase
+    S.mem.sort((a, b) => String(b.id).localeCompare(String(a.id)));
+    
+    // 3. Load donations
+    S.don = (await list('donations', 'at')).reverse();
+  } catch(e) {
+    console.error("Admin load failed:", e);
+  }
 }
 
 // ------------------------------------------------------------
