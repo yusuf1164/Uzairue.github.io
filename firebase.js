@@ -27,7 +27,8 @@ import {
   query,
   orderBy,
   increment,
-  serverTimestamp
+  serverTimestamp,
+  limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // CONNECT: starts Firebase with the keys from config.js (skipped while they are still placeholders).
@@ -63,5 +64,6 @@ window.FB = {
   query,
   orderBy,
   increment,
-  serverTimestamp
+  serverTimestamp,
+  limit
 };
