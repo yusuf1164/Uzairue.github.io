@@ -184,18 +184,29 @@ async function reload(){
 // ------------------------------------------------------------
 // SECTION: Member ID generator
 // What it does: Adds 1 to a counter in the database and returns the next member ID, such as
-//    UCA-0007.
+//    UCA-0007. Includes a retry loop so it never fails if two people sign up at the same time.
 // ------------------------------------------------------------
-async function nextId(){
-  return runTransaction(db, async tx => {
-    const r = doc(db, 'meta', 'counter'),
-          s = await tx.get(r),
-          n = (s.exists() ? s.data().n : 0) + 1;
-    tx.set(r, { n });
-    return 'UCA-' + String(n).padStart(4, '0');
-  });
+async function nextId() {
+  let attempts = 0;
+  
+  while (attempts < 5) {
+    try {
+      return await runTransaction(db, async tx => {
+        const r = doc(db, 'meta', 'counter'),
+              s = await tx.get(r),
+              n = (s.exists() ? s.data().n : 0) + 1;
+        tx.set(r, { n });
+        return 'UCA-' + String(n).padStart(4, '0');
+      });
+    } catch (e) {
+      // If two people clicked at the exact same second, wait a moment and try again
+      attempts++;
+      await new Promise(res => setTimeout(res, 500 + Math.random() * 500));
+    }
+  }
+  
+  throw new Error("Registration is very busy right now. Please try again in a moment.");
 }
-
 // ------------------------------------------------------------
 // SECTION: Helper: village dropdown options
 // What it does: Builds the village option list (A-Z). Falls back to Jattu when no villages
