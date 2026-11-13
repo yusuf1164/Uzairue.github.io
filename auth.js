@@ -29,14 +29,33 @@ const signup = () =>
 
 // ------------------------------------------------------------
 // SECTION: Action: log in
+// What it does: Signs in with Firebase. Replaces the form with a
+//    spinner while it waits for the home page data to load.
 // ------------------------------------------------------------
 async function doLogin(){
+  const email = v('le');
+  const pass = $('lp').value;
+  
+  if(!email || !pass) return say('Please enter your email and password.');
+
+  // 1. Find the login card and replace it with a spinner instantly
+  const card = $('le').closest('.card');
+  if (card) {
+    card.innerHTML = '<div style="text-align:center; padding: 40px 20px;">'
+      + '<div class="spinner"></div>'
+      + '<h3>Logging in...</h3>'
+      + '<p class="mute">Connecting to the community...</p>'
+      + '</div>';
+  }
+
   try{
-    await signInWithEmailAndPassword(auth, v('le'), $('lp').value);
+    await signInWithEmailAndPassword(auth, email, pass);
     S.view = 'home';
     S.msg = '';
-    // app.js onAuthStateChanged handles the render automatically
+    // The app will now automatically fetch data and render the Home page.
+    // The spinner will stay visible until that process is finished.
   } catch(e){
+    // If it fails, 'say' triggers a render which puts the login form back
     say('Login failed: check your email and password.');
   }
 }
