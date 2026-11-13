@@ -65,7 +65,7 @@ function admin(){
 
     h += '<div class="grid">'
       + [
-          ['Members', S.mem.length],
+          ['Members', S.memCount],
           ['Projects', S.proj.length],
           ['Donations', '₦' + tot.toLocaleString()],
           ['No-email members', ne]
@@ -90,7 +90,7 @@ function admin(){
 
   if(!M[t]){
     const C = {
-      members:   S.mem.length,
+      members:   S.memCount,
       villages:  S.vil.length,
       council:   S.coun.length,
       news:      S.news.length,
@@ -395,17 +395,42 @@ function showCard(id){
 
 // ------------------------------------------------------------
 // SECTION: Admin: look up a member by ID
+// What it does: Searches the recent 20 locally. If not found, it
+//    queries the database directly so you can edit anyone in 100k.
 // ------------------------------------------------------------
-function lookupId(){
-  const q = v('aid').toUpperCase(),
-        m = q ? S.mem.filter(x => String(x.id).toUpperCase() === q)[0] : null,
-        n = $('anote'),
-        b = $('abtn');
+async function lookupId(){
+  const q = v('aid').toUpperCase();
+  const n = $('anote');
+  const b = $('abtn');
+  
+  if(!q) {
+    S.editId = '';
+    if(S._was) ['an', 'ap', 'ah', 'ae'].forEach(i => { $(i).value = ''; });
+    S._was = false;
+    $('ae').disabled = false;
+    n.textContent = '';
+    b.textContent = 'Register';
+    return;
+  }
+
+  n.textContent = 'Searching...';
+  
+  let m = S.mem.filter(x => String(x.id).toUpperCase() === q)[0];
+
+  if(!m) {
+    try {
+      const qSnap = await getDocs(query(collection(db, 'members'), where('id', '==', q), limit(1)));
+      if(!qSnap.empty) {
+        m = { _id: qSnap.docs[0].id, ...qSnap.docs[0].data() };
+      }
+    } catch(e) { 
+      console.error("Search failed:", e); 
+    }
+  }
 
   S.editId = m ? m._id : '';
 
-  if(!m && S._was)
-    ['an', 'ap', 'ah', 'ae'].forEach(i => { $(i).value = ''; });
+  if(!m && S._was) ['an', 'ap', 'ah', 'ae'].forEach(i => { $(i).value = ''; });
 
   S._was = !!m;
   $('ae').disabled = !!(m && !m.byAdmin);
@@ -422,7 +447,7 @@ function lookupId(){
     n.textContent = 'Editing ' + m.id + (m.byAdmin ? '' : ' (login email can’t be changed here)');
     b.textContent = 'Save changes';
   } else {
-    n.textContent = q ? 'No member with that ID. Clear the ID field to register a new member.' : '';
+    n.textContent = q ? 'No member with that ID.' : '';
     b.textContent = 'Register';
   }
 }
