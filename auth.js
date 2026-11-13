@@ -1,7 +1,6 @@
 // Login, sign-up and email verification.
 // ------------------------------------------------------------
 // SECTION: Login page
-// What it does: Draws the email and password form with a link to create an account.
 // ------------------------------------------------------------
 const login = () =>
   '<div class="card narrow">'
@@ -14,8 +13,6 @@ const login = () =>
 
 // ------------------------------------------------------------
 // SECTION: Sign-up page
-// What it does: Draws the registration form: name, email (required), password, mobile,
-//    Address, village and photo.
 // ------------------------------------------------------------
 const signup = () =>
   '<div class="card narrow">'
@@ -32,39 +29,75 @@ const signup = () =>
 
 // ------------------------------------------------------------
 // SECTION: Action: log in
-// What it does: Signs in with the typed email and password through Firebase. Shows an error
-//    message if they are wrong.
 // ------------------------------------------------------------
 async function doLogin(){
   try{
     await signInWithEmailAndPassword(auth, v('le'), $('lp').value);
     S.view = 'home';
     S.msg = '';
+    // app.js onAuthStateChanged handles the render automatically
   } catch(e){
     say('Login failed: check your email and password.');
   }
 }
 
 // ------------------------------------------------------------
-// SECTION: Action: log in
-// What it does: Signs in with the typed email and password through Firebase. Shows an error
-//    message if they are wrong.
+// SECTION: Action: sign up
 // ------------------------------------------------------------
-async function doLogin(){
+async function doSignup(){
+  const n = v('sn'),
+        e = v('se'),
+        p = $('sp').value;
+
+  if(!n || !e || p.length < 6)
+    return say('Name, email and a 6+ character password are required.');
+
   try{
-    await signInWithEmailAndPassword(auth, v('le'), $('lp').value);
-    S.view = 'home';
-    S.msg = '';
-    // Force the app to immediately redraw and go to the home page
-    render(); 
-  } catch(e){
-    say('Login failed: check your email and password.');
+    const c  = await createUserWithEmailAndPassword(auth, e, p),
+          id = await nextId();
+
+    await setDoc(doc(db, 'members', c.user.uid), {
+      id,
+      name: n,
+      email: e,
+      phone: v('sm'),
+      address: v('sh'),
+      village: v('sv'),
+      role: 'member',
+      status: 'active',
+      img: S.img,
+      createdAt: serverTimestamp()
+    });
+
+    S.me = {
+      _id: c.user.uid,
+      id,
+      name: n,
+      email: e,
+      phone: v('sm'),
+      address: v('sh'),
+      village: v('sv'),
+      role: 'member',
+      status: 'active',
+      img: S.img
+    };
+
+    try{
+      await sendEmailVerification(c.user);
+    } catch(e){}
+
+    S.img = '';
+    S.view = 'verify';
+    S.msg = 'Account created. We sent a verification link to your email.';
+    await loadPub();
+    render();
+  } catch(x){
+    say(x.message);
   }
 }
 
 // ------------------------------------------------------------
 // SECTION: Action: log out
-// What it does: Signs the member out and returns to Home.
 // ------------------------------------------------------------
 async function out(){
   await signOut(auth);
@@ -73,8 +106,6 @@ async function out(){
 
 // ------------------------------------------------------------
 // SECTION: Verify-email page
-// What it does: Tells a new member to open the link we emailed. Has Resend and "I've
-//    verified" buttons. Members-only pages stay locked until verified.
 // ------------------------------------------------------------
 const verify = () =>
   !S.user
@@ -92,7 +123,6 @@ const verify = () =>
 
 // ------------------------------------------------------------
 // SECTION: Action: resend verification email
-// What it does: Sends the verification email again.
 // ------------------------------------------------------------
 async function resendVerify(){
   try{
@@ -105,8 +135,6 @@ async function resendVerify(){
 
 // ------------------------------------------------------------
 // SECTION: Action: check verification
-// What it does: Refreshes the member's sign-in status and reloads the app so the unlocked
-//    pages appear.
 // ------------------------------------------------------------
 async function checkVerified(){
   await auth.currentUser.reload();
