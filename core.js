@@ -28,7 +28,9 @@ const {
   orderBy,
   increment,
   serverTimestamp,
-  limit
+  limit,
+  where,
+  getCountFromServer
 } = FB;
 
 // ------------------------------------------------------------
@@ -74,6 +76,7 @@ const S = {
   proj:  [],
   coun:  [],
   mem:   [],
+  memCount: 0,
   don:   [],
   q:     '',
   vf:    '',
@@ -142,14 +145,24 @@ async function loadPub(){
 }
 
 // ------------------------------------------------------------
-// SECTION: Data: load admin content
-// What it does: Loads the member list and the donation log.
+// SECTION: Data: load admin content (SCALABLE FOR 100k MEMBERS)
+// What it does: Asks Firebase for the exact total count (1 read).
+//    Downloads only the newest 20 members for the directory.
 // ------------------------------------------------------------
 async function loadAdmin(){
   try {
-    const memSnap = await getDocs(collection(db, 'members'));
+    // 1. Get total count directly from the server
+    const countSnap = await getCountFromServer(collection(db, 'members'));
+    S.memCount = countSnap.data().count;
+
+    // 2. Download only the newest 20 members
+    const memQuery = query(collection(db, 'members'), limit(20));
+    const memSnap = await getDocs(memQuery);
+    
     S.mem = memSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    // Sort the 20 just in case
     S.mem.sort((a, b) => String(b.id).localeCompare(String(a.id)));
+
     S.don = (await list('donations', 'at')).reverse();
   } catch(e) {
     console.error("Admin load failed:", e);
