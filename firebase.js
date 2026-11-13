@@ -1,9 +1,7 @@
 // Loads Firebase and shares it with the other files as window.FB.
-// IMPORTS: loads the Firebase code (app, sign-in, database) from Google.
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-
 
 import {
   getAuth,
@@ -29,10 +27,11 @@ import {
   orderBy,
   increment,
   serverTimestamp,
-  limit
+  limit,
+  where,
+  getCountFromServer
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// CONNECT: starts Firebase with the keys from config.js (skipped while they are still placeholders).
 const cfg = window.FIREBASE_CONFIG;
 
 let auth = null,
@@ -44,7 +43,6 @@ if(!String(cfg.apiKey).startsWith('YOUR')){
   db   = getFirestore(app);
 }
 
-// SHARE: makes the Firebase tools available to the other files as window.FB.
 window.FB = {
   auth,
   db,
@@ -66,5 +64,7 @@ window.FB = {
   orderBy,
   increment,
   serverTimestamp,
-  limit
+  limit,
+  where,
+  getCountFromServer
 };
