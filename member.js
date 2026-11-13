@@ -12,7 +12,7 @@ function profile(){
 
   const t = titleOf(m);
 
-  return '<h2 style="margin-top:0">Welcome, ' + esc(m.name.split(' ')[0]) + '!</h2>'
+  return '<h2 style="margin-top:0">Welcome, ' + esc(String(m.name || 'Member').split(' ')[0]) + '!</h2>'
   + '<div class="card" style="display:flex;gap:14px;align-items:center">'
   + av(m)
   + '<div><h3>' + esc(m.name) + '</h3>'
@@ -25,12 +25,7 @@ function profile(){
   + (S.card ? '' : '<button class="p" onclick="go(\'dues\')">My Dues</button>')
   + '<button onclick="go(\'finance\')">Finance</button>'
   + '<button onclick="go(\'memberlist\')">Directory</button>'
-  + '</div>'    
-    + '<h2>Digital ID card</h2>'
-    + '<canvas id="cv"></canvas>'
-    + '<div class="row"><button class="p" onclick="dl()">Download ID</button></div>'
-    + (S.card ? '' : '<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">');
-}
+  + '</div>'
 
 
 // ------------------------------------------------------------
