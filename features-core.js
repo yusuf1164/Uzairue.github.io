@@ -115,23 +115,20 @@ function fxDonate(pid) {
 // ------------------------------------------------------------
 window.home = function () {
   const s = S.site || {};
-  let h = '<div class="hero">' + (s.logo ? '<img src="' + esc(s.logo) + '" alt="" style="height:64px;margin-bottom:8px">' : '') 
-    + '<h1>UZAIRUE KINGDOM</h1><p>One community, one future. Follow our news, back our projects and join the family.</p>
-    + '<div class="row"><button class="p" onclick="fxDonate()">Donate</button>' 
-+ (S.user ? '<button onclick="go(\'me\')">My Profile</button>' : '<button onclick="go(\'signup\')">Join now</button>') 
-+ '</div></div>';
+  let h = '<div class="hero">' + (s.logo ? '<img src="' + esc(s.logo) + '" alt="" style="height:64px;margin-bottom:8px">' : '') + '<h1>UZAIRUE</h1><p>One community, one future. Follow our news, back our projects and join the family.</p><div class="row"><button class="p" onclick="fxDonate()">Donate</button>' 
+    + (S.user ? '<button onclick="go(\'me\')">My Profile</button>' : '<button onclick="go(\'signup\')">Join now</button>') 
+    + '</div></div>';
   
   h += '<h2 id="news">Announcements &amp; News</h2><div class="grid">';
   if (!S.news.length) h += '<div class="card mute">No news yet.</div>';
   S.news.forEach(function (n) { h += '<div class="card">' + (imgOk(n.img) ? '<img class="thumb" src="' + esc(n.img) + '" alt="">' : '') + '<h3>' + esc(n.title) + '</h3><p>' + esc(n.body) + '</p></div>'; });
+  
   h += '</div><h2 id="projects">Projects &amp; Progress</h2><div class="grid">';
   if (!S.proj.length) h += '<div class="card mute">No projects yet.</div>';
   S.proj.forEach(function (p) {
-    h += '<div class="card">' + (imgOk(p.img) ? '<img class="thumb" src="' + esc(p.img) + '" alt="">' : '') 
-      + '<h3>' + esc(p.title) + '</h3><p class="mute">' + esc(p.body) + '</p><div class="bar"><i style="width:' + pct(p) 
-      + '%"></i></div><div class="mute">' + pct(p) + '% · ₦' + (p.raised || 0).toLocaleString() + ' of ₦' + (p.target || 0).toLocaleString() 
-      + '</div><div class="row"><button class="p" onclick="fxDonate(\'' + p._id + '\')">Donate</button></div></div>';
+    h += '<div class="card">' + (imgOk(p.img) ? '<img class="thumb" src="' + esc(p.img) + '" alt="">' : '') + '<h3>' + esc(p.title) + '</h3><p class="mute">' + esc(p.body) + '</p><div class="bar"><i style="width:' + pct(p) + '%"></i></div><div class="mute">' + pct(p) + '% · ₦' + (p.raised || 0).toLocaleString() + ' of ₦' + (p.target || 0).toLocaleString() + '</div><div class="row"><button class="p" onclick="fxDonate(\'' + p._id + '\')">Donate</button></div></div>';
   });
+  
   h += '</div><h2 id="donate">Support the community</h2><div class="card">' + (imgOk(s.donImg) ? '<img class="donimg" src="' + esc(s.donImg) + '" alt="">' : '') + '<p>Every contribution moves a project forward.</p>' + acctHtml(acctOf(null)) + '</div>';
   return h;
 };
