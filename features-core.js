@@ -152,7 +152,7 @@ window.home = function () {
 
 // ------------------------------------------------------------
 // SECTION: ID card (replaces drawCard)
-// What it does: Paints the new card with a smooth, professional map watermark.
+// What it does: Paints the new card with a smooth map watermark.
 // ------------------------------------------------------------
 window.drawCard = async function (m, id) {
   const c = $(id); if (!c) return;
@@ -183,21 +183,29 @@ window.drawCard = async function (m, id) {
   g = x.createLinearGradient(0, 0, 560, H); g.addColorStop(0, '#031a08'); g.addColorStop(1, '#06300f'); x.fillStyle = g;
   x.beginPath(); x.moveTo(0, 0); x.lineTo(565, 0); x.bezierCurveTo(705, 140, 695, 330, 470, H); x.lineTo(0, H); x.closePath(); x.fill();
 
-  // --- 2. Map Watermark (Full width, but faint) ---
+  // --- 2. Map Watermark (The Magic Trick) ---
   if (map) {
     x.save();
-    x.globalAlpha = 0.12; // Faint
-    const mapW = 1000;
-    const mapH = mapW * (map.height / map.width);
-    x.drawImage(map, 50, (H - mapH) / 2, mapW, mapH);
+    // 'multiply' blends the dark lines and makes the white background transparent!
+    x.globalCompositeOperation = 'multiply'; 
+    x.globalAlpha = 0.35; // Adjust this to make the lines darker or lighter (0.1 = very faint, 0.5 = strong)
+    
+    // Scale to cover the whole card
+    const scale = Math.max(W / map.width, H / map.height);
+    const mapW = map.width * scale;
+    const mapH = map.height * scale;
+    const mapX = (W - mapW) / 2;
+    const mapY = (H - mapH) / 2;
+    
+    x.drawImage(map, mapX, mapY, mapW, mapH);
     x.restore();
   }
 
-  // --- 3. Gradient Overlay (Makes left side dark for text, right side clear for map) ---
+  // --- 3. Gradient Overlay (Keeps text readable on the left) ---
   const overlay = x.createLinearGradient(0, 0, W, 0);
-  overlay.addColorStop(0, 'rgba(11, 61, 23, 0.95)'); // Solid dark green on left
-  overlay.addColorStop(0.45, 'rgba(11, 61, 23, 0.8)'); // Fading out
-  overlay.addColorStop(0.65, 'rgba(11, 61, 23, 0)');   // Fully transparent on right
+  overlay.addColorStop(0, 'rgba(11, 61, 23, 0.95)'); 
+  overlay.addColorStop(0.45, 'rgba(11, 61, 23, 0.8)'); 
+  overlay.addColorStop(0.65, 'rgba(11, 61, 23, 0)');   
   x.fillStyle = overlay;
   x.fillRect(0, 0, W, H);
 
@@ -227,18 +235,15 @@ window.drawCard = async function (m, id) {
   if (photo) x.drawImage(photo, 405, 40, 150, 150); else { x.fillStyle = LIME; x.font = 'bold 70px sans-serif'; x.textAlign = 'center'; x.fillText((m.name || '?').charAt(0).toUpperCase(), 480, 140); x.textAlign = 'left'; }
   x.restore(); x.strokeStyle = LIME; x.lineWidth = 4; x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.stroke();
 
-  // --- 6. Right Panel: Logo and Title (Cleaned up) ---
+  // --- 6. Right Panel: Logo and Title ---
   x.textAlign = 'center';
   
-  // Top Logo
   if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 55, logo.width * k, logo.height * k); }
   else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 100); }
   
-  // Main Title
   x.fillStyle = LIME; x.font = 'bold 42px sans-serif'; x.fillText('UZAIRUE', 840, 315);
   x.font = 'bold 30px sans-serif'; x.fillText('KINGDOM', 840, 355);
   
-  // Subtitle
   x.fillStyle = PALE; x.font = 'bold 22px sans-serif'; x.fillText('COMMUNITY CARD', 840, 395);
 
   // --- 7. QR Code ---
