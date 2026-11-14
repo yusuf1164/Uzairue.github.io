@@ -151,33 +151,70 @@ window.home = function () {
 };
 
 // ------------------------------------------------------------
-// SECTION: ID card (Kept your 110px UZAIRUE KINGDOM design!)
+// SECTION: ID card (replaces drawCard)
+// What it does: Paints the new card with the Uzairue map watermark.
 // ------------------------------------------------------------
 window.drawCard = async function (m, id) {
   const c = $(id); if (!c) return;
   try { await lib(QR_URL); } catch (e) {}
   const W = 1050, H = 600; c.width = W; c.height = H;
   const x = c.getContext('2d');
-  const load = function (src) { return new Promise(function (r) { if (!src) return r(null); const i = new Image(); i.onload = function () { r(i); }; i.onerror = function () { r(null); }; i.src = src; }); };
-  const imgs = await Promise.all([load((S.site || {}).logo), load(m.img)]), logo = imgs[0], photo = imgs[1];
+  
+  // 1. MAP URL: Because it's in the same folder as index.html, we just use 'map.jpg'
+  const MAP_URL = 'map.jpg'; 
+  
+  const load = function (src) { 
+    return new Promise(function (r) { 
+      if (!src) return r(null); 
+      const i = new Image(); 
+      i.crossOrigin = "anonymous"; 
+      i.onload = function () { r(i); }; 
+      i.onerror = function () { r(null); }; 
+      i.src = src; 
+    }); 
+  };
+  
+  // Load logo, photo, and map at the same time
+  const imgs = await Promise.all([
+    load((S.site || {}).logo), 
+    load(m.img),
+    load(MAP_URL)
+  ]);
+  
+  const logo = imgs[0], photo = imgs[1], map = imgs[2];
   const LIME = '#7ddc1f', PALE = '#c8f06a';
-  // panels
+  
+  // --- Base Background Panels ---
   let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0d4a1a'); g.addColorStop(1, '#16802d'); x.fillStyle = g; x.fillRect(0, 0, W, H);
   x.fillStyle = '#0b3d17'; x.beginPath(); x.moveTo(0, 0); x.lineTo(590, 0); x.bezierCurveTo(735, 140, 725, 330, 495, H); x.lineTo(0, H); x.closePath(); x.fill();
   g = x.createLinearGradient(0, 0, 560, H); g.addColorStop(0, '#031a08'); g.addColorStop(1, '#06300f'); x.fillStyle = g;
   x.beginPath(); x.moveTo(0, 0); x.lineTo(565, 0); x.bezierCurveTo(705, 140, 695, 330, 470, H); x.lineTo(0, H); x.closePath(); x.fill();
-  // faint logo background
-  x.save(); x.globalAlpha = 0.07;
+
+  // --- MAP WATERMARK ---
+  if (map) {
+    x.save();
+    x.globalAlpha = 0.15; // 15% opacity (faint)
+    const mapW = 600;
+    const mapH = mapW * (map.height / map.width);
+    // Draw it on the right side, centered vertically
+    x.drawImage(map, 450, (H - mapH) / 2, mapW, mapH);
+    x.restore();
+  }
+
+  // --- Faint Logo Background (drawn over the map) ---
+  x.save(); x.globalAlpha = 0.05; // 5% opacity
   if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
   else { x.fillStyle = LIME; x.font = 'bold 110px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
   x.restore();
-  // name (wraps to 3 lines), title, divider
+
+  // --- Text Details ---
   x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
   const lines = ['']; String(m.name || '').toUpperCase().split(' ').forEach(function (w) { const t = (lines[lines.length - 1] + ' ' + w).trim(); if (x.measureText(t).width > 340 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; });
   lines.slice(0, 3).forEach(function (l, i) { x.fillText(l, 40, 85 + i * 44); });
+  
   x.fillStyle = PALE; x.font = 'bold 24px sans-serif'; x.fillText(String((titleOf(m) || 'MEMBER')).toUpperCase(), 40, 215);
   x.fillStyle = '#145a22'; x.fillRect(40, 238, 500, 3);
-  // details (no icons): smaller values so everything fits
+  
   const addr = m.address || m.house || '-', age = ageOf(m.dob);
   const stat = (age !== '' ? age + ' yrs \u00b7 ' : '') + (m.status === 'revoked' ? 'REVOKED' : 'ACTIVE');
   const rows = [['MEMBER ID', m.id || ''], ['VILLAGE / TOWN', m.village || ''], ['ADDRESS', addr], ['PHONE', m.phone || '-'], ['OCCUPATION', m.occupation || '-'], ['AGE / STATUS', stat]];
@@ -189,18 +226,21 @@ window.drawCard = async function (m, id) {
     ls.forEach(function (l, i) { x.fillText(l, 215, ry + i * 26); });
     ry += 44 + (ls.length > 1 ? 24 : 0);
   });
-  // photo
+
+  // --- Photo ---
   x.save(); x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.closePath(); x.clip();
   x.fillStyle = '#16284a'; x.fillRect(405, 40, 150, 150);
   if (photo) x.drawImage(photo, 405, 40, 150, 150); else { x.fillStyle = LIME; x.font = 'bold 70px sans-serif'; x.textAlign = 'center'; x.fillText((m.name || '?').charAt(0).toUpperCase(), 480, 140); x.textAlign = 'left'; }
   x.restore(); x.strokeStyle = LIME; x.lineWidth = 4; x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.stroke();
-  // right panel: logo and title
+
+  // --- Right Panel: Logo and Title ---
   x.textAlign = 'center';
   if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 75, logo.width * k, logo.height * k); }
   else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 170); }
   x.fillStyle = LIME; x.font = 'bold 30px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 335);
   x.fillStyle = PALE; x.font = 'bold 32px sans-serif'; x.fillText('COMMUNITY CARD', 840, 380);
-  // QR code (holds the member ID)
+
+  // --- QR Code ---
   if (window.qrcode && m.id) {
     const q = qrcode(0, 'M'); q.addData('UZAIRUE:' + m.id); q.make();
     const n = q.getModuleCount(), box = 190, pad = 14, cs = (box - pad * 2) / n, qx = 745, qy = 395;
