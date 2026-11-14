@@ -1533,7 +1533,11 @@ async function fxLoadDirectory() {
   }
 
   try {
-    S.fxDir = (await list('directory')).sort(function (a, b) {
+    const memQuery = query(collection(db, 'directory'), limit(20));
+    const snap = await getDocs(memQuery);
+    
+    S.fxDir = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    S.fxDir.sort(function (a, b) {
       return String(a.name).localeCompare(String(b.name));
     });
   } catch (e) {
