@@ -67,20 +67,58 @@ window.loadPub = async function () { await _loadPub(); await loadSite(); };
 
 // ------------------------------------------------------------
 // SECTION: Image picker
-// What it does: reads a chosen image, shrinks it (so it fits in the
-// database), keeps it in IMG under a key and shows a preview.
+// What it does: Reads a chosen image, uploads it to ImgBB, and
+//    keeps the short URL in IMG under a key.
 // ------------------------------------------------------------
 const IMG = {};
 function fxPick(inp, key, max, png) {
   const f = inp.files[0]; if (!f) return;
   const r = new FileReader();
+  
   r.onload = function () {
     const im = new Image();
-    im.onload = function () {
-      const k = Math.min(1, max / Math.max(im.width, im.height)), w = Math.round(im.width * k), h = Math.round(im.height * k), c = document.createElement('canvas');
-      c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h);
-      IMG[key] = png ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.78);
-      const p = $('pv_' + key); if (p) { p.src = IMG[key]; p.style.display = 'block'; }
+    
+    im.onload = async function () {
+      const k = Math.min(1, max / Math.max(im.width, im.height)), 
+            w = Math.round(im.width * k), 
+            h = Math.round(im.height * k), 
+            c = document.createElement('canvas');
+            
+      c.width = w; c.height = h; 
+      c.getContext('2d').drawImage(im, 0, 0, w, h);
+      
+      const base64 = png ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.78);
+      const base64Data = base64.split(',')[1];
+      
+      try {
+        say('Uploading image...');
+        
+        const form = new FormData();
+        form.append('image', base64Data);
+
+        // Send to ImgBB (Your API Key is inserted here)
+        const res = await fetch('https://api.imgbb.com/1/upload?key=4702c6f22cc6a0ed47c78bb2ea7085b4', {
+          method: 'POST',
+          body: form
+        });
+        
+        const data = await res.json();
+        if(!data.success) throw new Error('Upload failed');
+
+        IMG[key] = data.data.url; // Save the short URL
+        
+        const p = $('pv_' + key); 
+        if (p) { 
+          p.src = IMG[key]; 
+          p.style.display = 'block'; 
+        }
+        S.msg = ''; 
+        render();
+        
+      } catch(err) {
+        console.error("Image upload failed:", err);
+        say('Image upload failed. Please try again.');
+      }
     };
     im.src = r.result;
   };
