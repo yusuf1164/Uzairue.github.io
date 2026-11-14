@@ -152,7 +152,7 @@ window.home = function () {
 
 // ------------------------------------------------------------
 // SECTION: ID card (replaces drawCard)
-// What it does: Paints the new card with the Uzairue map watermark.
+// What it does: Paints the new card with a smooth, professional map watermark.
 // ------------------------------------------------------------
 window.drawCard = async function (m, id) {
   const c = $(id); if (!c) return;
@@ -160,7 +160,6 @@ window.drawCard = async function (m, id) {
   const W = 1050, H = 600; c.width = W; c.height = H;
   const x = c.getContext('2d');
   
-  // 1. MAP URL: Because it's in the same folder as index.html, we just use 'map.jpg'
   const MAP_URL = 'map.jpg'; 
   
   const load = function (src) { 
@@ -174,40 +173,35 @@ window.drawCard = async function (m, id) {
     }); 
   };
   
-  // Load logo, photo, and map at the same time
-  const imgs = await Promise.all([
-    load((S.site || {}).logo), 
-    load(m.img),
-    load(MAP_URL)
-  ]);
-  
+  const imgs = await Promise.all([load((S.site || {}).logo), load(m.img), load(MAP_URL)]);
   const logo = imgs[0], photo = imgs[1], map = imgs[2];
   const LIME = '#7ddc1f', PALE = '#c8f06a';
   
-  // --- Base Background Panels ---
+  // --- 1. Base Background Panels ---
   let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0d4a1a'); g.addColorStop(1, '#16802d'); x.fillStyle = g; x.fillRect(0, 0, W, H);
   x.fillStyle = '#0b3d17'; x.beginPath(); x.moveTo(0, 0); x.lineTo(590, 0); x.bezierCurveTo(735, 140, 725, 330, 495, H); x.lineTo(0, H); x.closePath(); x.fill();
   g = x.createLinearGradient(0, 0, 560, H); g.addColorStop(0, '#031a08'); g.addColorStop(1, '#06300f'); x.fillStyle = g;
   x.beginPath(); x.moveTo(0, 0); x.lineTo(565, 0); x.bezierCurveTo(705, 140, 695, 330, 470, H); x.lineTo(0, H); x.closePath(); x.fill();
 
-  // --- MAP WATERMARK ---
+  // --- 2. Map Watermark (Full width, but faint) ---
   if (map) {
     x.save();
-    x.globalAlpha = 0.15; // 15% opacity (faint)
-    const mapW = 600;
+    x.globalAlpha = 0.12; // Faint
+    const mapW = 1000;
     const mapH = mapW * (map.height / map.width);
-    // Draw it on the right side, centered vertically
-    x.drawImage(map, 450, (H - mapH) / 2, mapW, mapH);
+    x.drawImage(map, 50, (H - mapH) / 2, mapW, mapH);
     x.restore();
   }
 
-  // --- Faint Logo Background (drawn over the map) ---
-  x.save(); x.globalAlpha = 0.05; // 5% opacity
-  if (logo) { const k = Math.min(700 / logo.width, 520 / logo.height); x.drawImage(logo, 525 - logo.width * k / 2, 300 - logo.height * k / 2, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 110px sans-serif'; x.textAlign = 'center'; x.fillText('UZAIRUE KINGDOM', 525, 330); }
-  x.restore();
+  // --- 3. Gradient Overlay (Makes left side dark for text, right side clear for map) ---
+  const overlay = x.createLinearGradient(0, 0, W, 0);
+  overlay.addColorStop(0, 'rgba(11, 61, 23, 0.95)'); // Solid dark green on left
+  overlay.addColorStop(0.45, 'rgba(11, 61, 23, 0.8)'); // Fading out
+  overlay.addColorStop(0.65, 'rgba(11, 61, 23, 0)');   // Fully transparent on right
+  x.fillStyle = overlay;
+  x.fillRect(0, 0, W, H);
 
-  // --- Text Details ---
+  // --- 4. Text Details (Left Side) ---
   x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
   const lines = ['']; String(m.name || '').toUpperCase().split(' ').forEach(function (w) { const t = (lines[lines.length - 1] + ' ' + w).trim(); if (x.measureText(t).width > 340 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; });
   lines.slice(0, 3).forEach(function (l, i) { x.fillText(l, 40, 85 + i * 44); });
@@ -227,23 +221,30 @@ window.drawCard = async function (m, id) {
     ry += 44 + (ls.length > 1 ? 24 : 0);
   });
 
-  // --- Photo ---
+  // --- 5. Photo ---
   x.save(); x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.closePath(); x.clip();
   x.fillStyle = '#16284a'; x.fillRect(405, 40, 150, 150);
   if (photo) x.drawImage(photo, 405, 40, 150, 150); else { x.fillStyle = LIME; x.font = 'bold 70px sans-serif'; x.textAlign = 'center'; x.fillText((m.name || '?').charAt(0).toUpperCase(), 480, 140); x.textAlign = 'left'; }
   x.restore(); x.strokeStyle = LIME; x.lineWidth = 4; x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.stroke();
 
-  // --- Right Panel: Logo and Title ---
+  // --- 6. Right Panel: Logo and Title (Cleaned up) ---
   x.textAlign = 'center';
-  if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 75, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 170); }
-  x.fillStyle = LIME; x.font = 'bold 30px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 335);
-  x.fillStyle = PALE; x.font = 'bold 32px sans-serif'; x.fillText('COMMUNITY CARD', 840, 380);
+  
+  // Top Logo
+  if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 55, logo.width * k, logo.height * k); }
+  else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 100); }
+  
+  // Main Title
+  x.fillStyle = LIME; x.font = 'bold 42px sans-serif'; x.fillText('UZAIRUE', 840, 315);
+  x.font = 'bold 30px sans-serif'; x.fillText('KINGDOM', 840, 355);
+  
+  // Subtitle
+  x.fillStyle = PALE; x.font = 'bold 22px sans-serif'; x.fillText('COMMUNITY CARD', 840, 395);
 
-  // --- QR Code ---
+  // --- 7. QR Code ---
   if (window.qrcode && m.id) {
     const q = qrcode(0, 'M'); q.addData('UZAIRUE:' + m.id); q.make();
-    const n = q.getModuleCount(), box = 190, pad = 14, cs = (box - pad * 2) / n, qx = 745, qy = 395;
+    const n = q.getModuleCount(), box = 160, pad = 12, cs = (box - pad * 2) / n, qx = 760, qy = 415;
     x.fillStyle = '#ffffff'; rr(x, qx, qy, box, box, 14); x.fillStyle = '#000000';
     for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(qx + pad + k * cs, qy + pad + r * cs, cs + 0.6, cs + 0.6);
   }
