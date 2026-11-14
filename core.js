@@ -231,6 +231,8 @@ const pct = p =>
 
 // ------------------------------------------------------------
 // SECTION: Photo picker
+// What it does: Shrinks the image, uploads it to ImgBB, and saves
+//    only the short URL to the database.
 // ------------------------------------------------------------
 function pick(inp){
   const f = inp.files[0];
@@ -241,7 +243,7 @@ function pick(inp){
   r.onload = () => {
     const im = new Image();
 
-    im.onload = () => {
+    im.onload = async () => {
       const c = document.createElement('canvas'),
             m = Math.min(im.width, im.height);
 
@@ -252,15 +254,40 @@ function pick(inp){
         0, 0, 160, 160
       );
 
-      S.img = c.toDataURL('image/jpeg', .8);
+      // 1. Convert to Base64
+      const base64 = c.toDataURL('image/jpeg', .8);
+      // 2. Strip the "data:image/jpeg;base64," prefix for ImgBB
+      const base64Data = base64.split(',')[1];
 
-      if(S.view === 'me' && S.me){
-        updateDoc(doc(db, 'members', S.me._id), { img: S.img })
-          .then(() => {
-            S.me.img = S.img;
-            S.img = '';
-            render();
-          });
+      try {
+        say('Uploading photo...');
+
+        const form = new FormData();
+        form.append('image', base64Data);
+
+        // 3. Send to ImgBB (Your API Key is inserted here)
+        const res = await fetch('https://api.imgbb.com/1/upload?key=4702c6f22cc6a0ed47c78bb2ea7085b4', {
+          method: 'POST',
+          body: form
+        });
+        
+        const data = await res.json();
+        if(!data.success) throw new Error('Upload failed');
+
+        // 4. Get the short URL
+        const url = data.data.url;
+        S.img = url;
+
+        if(S.view === 'me' && S.me){
+          await updateDoc(doc(db, 'members', S.me._id), { img: url });
+          S.me.img = url;
+          S.img = '';
+          S.msg = ''; 
+          render();
+        }
+      } catch (err) {
+        console.error(err);
+        say('Photo upload failed. Please check your internet.');
       }
     };
 
@@ -268,4 +295,5 @@ function pick(inp){
   };
 
   r.readAsDataURL(f);
+}
 }
