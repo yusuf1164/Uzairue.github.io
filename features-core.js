@@ -1,6 +1,5 @@
 // ------------------------------------------------------------
 // SECTION: Extra styles
-// What it does: styles for the donate panel, scanner, toast and previews.
 // ------------------------------------------------------------
 const st = document.createElement('style');
 st.textContent =
@@ -12,15 +11,12 @@ st.textContent =
   '.scan{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#fff;padding:16px}' +
   '.scan video{max-width:100%;max-height:65vh;border-radius:12px}' +
   '.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--acc);color:var(--accink);padding:10px 16px;border-radius:99px;z-index:60;font-weight:600}' +
-  // NEW: Make all cards in a grid equal height and push buttons to the bottom
   '.grid > .card{height:100%;display:flex;flex-direction:column}' +
   '.grid > .card .row:last-child{margin-top:auto}';
 document.head.appendChild(st);
 
 // ------------------------------------------------------------
 // SECTION: Library loader
-// What it does: loads the QR code maker (and, on demand, the QR reader)
-// from the jsDelivr CDN one time, and lets other code wait for them.
 // ------------------------------------------------------------
 const QR_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
@@ -36,8 +32,6 @@ lib(QR_URL).catch(function () {});
 
 // ------------------------------------------------------------
 // SECTION: Small helpers
-// What it does: image check, toast message, copy-to-clipboard and a
-// rounded-rectangle painter used by the ID card.
 // ------------------------------------------------------------
 const imgOk = function (u) { return /^(https?:\/\/|data:image\/)/i.test(u || '') ? u : ''; };
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 1600); }
@@ -48,14 +42,12 @@ function fxCopy(t) {
 function rr(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); x.fill(); }
 
 // ------------------------------------------------------------
-// SECTION: Site settings (logo, banner, community account)
-// What it does: reads the settings/site document, shows the logo in the
-// top bar, and refreshes it every time the public data is loaded.
+// SECTION: Site settings
 // ------------------------------------------------------------
 S.site = S.site || {};
 function applyLogo() {
   const l = document.querySelector('.logo'); if (!l) return;
-  l.innerHTML = (S.site.logo ? '<img src="' + esc(S.site.logo) + '" alt="" style="height:30px;vertical-align:middle;margin-right:8px;border-radius:6px">' : '') + 'UZAIRUE COMMUNITY';
+  l.innerHTML = (S.site.logo ? '<img src="' + esc(S.site.logo) + '" alt="" style="height:30px;vertical-align:middle;margin-right:8px;border-radius:6px">' : '') + 'UZAIRUE KINGDOM';
 }
 async function loadSite() {
   if (!cfgOk) return;
@@ -66,9 +58,7 @@ const _loadPub = window.loadPub;
 window.loadPub = async function () { await _loadPub(); await loadSite(); };
 
 // ------------------------------------------------------------
-// SECTION: Image picker
-// What it does: Reads a chosen image, uploads it to ImgBB, and
-//    keeps the short URL in IMG under a key.
+// SECTION: Image picker (ImgBB Upload)
 // ------------------------------------------------------------
 const IMG = {};
 function fxPick(inp, key, max, png) {
@@ -96,7 +86,6 @@ function fxPick(inp, key, max, png) {
         const form = new FormData();
         form.append('image', base64Data);
 
-        // Send to ImgBB (Your API Key is inserted here)
         const res = await fetch('https://api.imgbb.com/1/upload?key=4702c6f22cc6a0ed47c78bb2ea7085b4', {
           method: 'POST',
           body: form
@@ -105,7 +94,7 @@ function fxPick(inp, key, max, png) {
         const data = await res.json();
         if(!data.success) throw new Error('Upload failed');
 
-        IMG[key] = data.data.url; // Save the short URL
+        IMG[key] = data.data.url;
         
         const p = $('pv_' + key); 
         if (p) { 
@@ -127,8 +116,6 @@ function fxPick(inp, key, max, png) {
 
 // ------------------------------------------------------------
 // SECTION: Donate panel
-// What it does: shows the bank details (a project's own account, or the
-// community account) in a pop-up with a Copy button.
 // ------------------------------------------------------------
 const acctOf = function (p) { const s = S.site || {}; return (p && (p.acct || p.bank)) ? { bank: p.bank, acct: p.acct, name: p.acctName } : { bank: s.bank, acct: s.acct, name: s.acctName }; };
 function acctHtml(a) {
@@ -146,14 +133,11 @@ function fxDonate(pid) {
 }
 
 // ------------------------------------------------------------
-// SECTION: Home page (replaces home)
-// What it does: same home page as before, plus the logo, news and
-// project images, a Donate button on every project and a Donate section
-// with a banner image and the community account.
+// SECTION: Home page
 // ------------------------------------------------------------
 window.home = function () {
   const s = S.site || {};
-  let h = '<div class="hero">' + (s.logo ? '<img src="' + esc(s.logo) + '" alt="" style="height:64px;margin-bottom:8px">' : '') + '<h1>UZAIRUE KINGDOM</h1><p>One community, one future. Follow our news, back our projects and join the family.</p><div class="row"><button class="p" onclick="fxDonate()">Donate</button>' + (S.user ? '' : '<button onclick="go(\'signup\')">Join now</button>') + '</div></div>';
+  let h = '<div class="hero">' + (s.logo ? '<img src="' + esc(s.logo) + '" alt="" style="height:64px;margin-bottom:8px">' : '') + '<h1>UZAIRUE</h1><p>One community, one future. Follow our news, back our projects and join the family.</p><div class="row"><button class="p" onclick="fxDonate()">Donate</button>' + (S.user ? '' : '<button onclick="go(\'signup\')">Join now</button>') + '</div></div>';
   h += '<h2 id="news">Announcements &amp; News</h2><div class="grid">';
   if (!S.news.length) h += '<div class="card mute">No news yet.</div>';
   S.news.forEach(function (n) { h += '<div class="card">' + (imgOk(n.img) ? '<img class="thumb" src="' + esc(n.img) + '" alt="">' : '') + '<h3>' + esc(n.title) + '</h3><p>' + esc(n.body) + '</p></div>'; });
@@ -167,12 +151,7 @@ window.home = function () {
 };
 
 // ------------------------------------------------------------
-// SECTION: ID card (replaces drawCard)
-// What it does: paints the new card: dark green curved left panel with
-// the member's name, title, ID, village, house, phone and status; lime
-// green right panel with the logo, "UZAIRUE COMMUNITY CARD", the member
-// photo and a QR code that holds the member ID. The logo is also the
-// faint background. No icons.
+// SECTION: ID card (Kept your 110px UZAIRUE KINGDOM design!)
 // ------------------------------------------------------------
 window.drawCard = async function (m, id) {
   const c = $(id); if (!c) return;
