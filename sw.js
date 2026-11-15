@@ -1,8 +1,9 @@
-const CACHE_NAME = 'uzairue-v2';
+const CACHE_NAME = 'uzairue-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './icon.png',
   './style.css',
   './config.js',
   './firebase.js',
@@ -15,11 +16,9 @@ const ASSETS = [
   './features-core.js',
   './features-admin.js',
   './features-members.js',
-  './features-finance.js',
-  './map.jpg'
+  './features-finance.js'
 ];
 
-// Install the service worker and cache the files
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
@@ -27,7 +26,6 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
-// Activate and clean up old caches
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => {
@@ -41,7 +39,6 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Fetch from cache first, then network
 self.addEventListener('fetch', (e) => {
   // Don't cache Firebase or ImgBB API calls
   if (e.request.url.includes('googleapis') || e.request.url.includes('imgbb')) {
