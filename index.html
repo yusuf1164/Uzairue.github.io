@@ -4,6 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>UZAIRUE</title>
+  
+  <!-- NEW: PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d4a1a">
 
   <!-- STYLES: all colours, layout and card looks live in style.css. -->
   <link rel="stylesheet" href="style.css">
@@ -43,5 +47,12 @@
   <script defer src="features-admin.js"></script>
   <script defer src="features-members.js"></script>
   <script defer src="features-finance.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW failed', err));
+      });
+    }
+  </script>
 </body>
 </html>
