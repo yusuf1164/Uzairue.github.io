@@ -53,11 +53,18 @@ function nav(){
 }
 
 function render(){
-  if(S.ready){
-    if(!S.user && ['me', 'council', 'admin', 'verify'].includes(S.view))
-      S.view = 'home';
-    if(S.user && ['login', 'signup'].includes(S.view))
-      S.view = 'home';
+  // If Firebase hasn't finished checking the login state, show a spinner
+  if(!S.ready) {
+    $('app').innerHTML = '<div style="text-align:center; padding: 60px 20px;"><div class="spinner"></div><h3>Waking up...</h3></div>';
+    return;
+  }
+
+  if(!S.user && ['me', 'council', 'admin', 'verify'].includes(S.view))
+    S.view = 'home';
+  if(S.user && ['login', 'signup'].includes(S.view))
+    S.view = 'home';
+    
+  
   }
 
   if(S.user && !S.user.emailVerified && ['me', 'council', 'admin'].includes(S.view))
