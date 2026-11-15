@@ -26,8 +26,8 @@ const S = {
   user: null, me: null, view: 'home', tab: 'dash',
   vil: [], news: [], proj: [], coun: [], mem: [], memCount: 0, don: [],
   q: '', vf: '', msg: '', img: '', card: null, cardFlipped: false,
-  pendingDuesCount: 0, // <-- ADD THIS
-  unpaidIdCount: 0     // <-- ADD THIS
+  pendingDuesCount: 0,
+  unpaidIdCount: 0
 };
 
 const isAdmin = () => S.me && S.me.role === 'admin';
@@ -74,13 +74,16 @@ async function loadAdmin(){
 
     S.don = (await list('donations', 'at')).reverse();
 
-    // NEW: Fetch pending dues count
-    const duesSnap = await getCountFromServer(query(collection(db, 'dues'), where('status', '==', 'pending')));
-    S.pendingDuesCount = duesSnap.data().count;
+    // Safely fetch counts (never crash the app if these fail)
+    try {
+      const duesSnap = await getCountFromServer(query(collection(db, 'dues'), where('status', '==', 'pending')));
+      S.pendingDuesCount = duesSnap.data().count;
+    } catch(e) { console.warn("Dues count failed", e); }
 
-    // NEW: Fetch unpaid ID fee count
-    const idSnap = await getCountFromServer(query(collection(db, 'members'), where('idFeePaid', '==', false)));
-    S.unpaidIdCount = idSnap.data().count;
+    try {
+      const idSnap = await getCountFromServer(query(collection(db, 'members'), where('idFeePaid', '==', false)));
+      S.unpaidIdCount = idSnap.data().count;
+    } catch(e) { console.warn("ID fee count failed", e); }
 
   } catch(e) { console.error("Admin load failed:", e); }
 }
