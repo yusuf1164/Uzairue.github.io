@@ -184,17 +184,23 @@ window.drawCard = async function (m, id) {
     x.fillText('2. If found, please return to the nearest Admin or Village Head.', W / 2, 210);
     x.fillText('3. Misuse of this card will result in immediate revocation.', W / 2, 240);
 
-    // Barcode Simulation
-    x.fillStyle = '#fff';
-    let bx = 300;
-    for (let i = 0; i < 40; i++) {
-      let bw = Math.floor(Math.random() * 8) + 2;
-      let bh = Math.floor(Math.random() * 40) + 40;
-      x.fillRect(bx, 300, bw, bh);
-      bx += bw + 4;
-    }
-    x.font = '16px monospace'; x.fillText(m.id || 'UCA-0000', W / 2, 370);
+    // Barcode Simulation (Fixed)
+x.fillStyle = '#fff';
+let bx = 330; // Centered start
+const baseline = 380; // The bottom line of the barcode
 
+for (let i = 0; i < 40; i++) {
+  let bw = Math.floor(Math.random() * 8) + 2;
+  let bh = Math.floor(Math.random() * 40) + 40;
+  // Draw the bar upwards from the baseline
+  x.fillRect(bx, baseline - bh, bw, bh); 
+  bx += bw + 4;
+}
+
+// ID text below the barcode
+x.font = '20px monospace'; 
+x.fillText(m.id || 'UCA-0000', W / 2, 415); 
+    
     // Copyright
     x.fillStyle = PALE; x.font = 'bold 18px sans-serif';
     x.fillText('© 2026 UZAIRUE KINGDOM. ALL RIGHTS RESERVED.', W / 2, 480);
