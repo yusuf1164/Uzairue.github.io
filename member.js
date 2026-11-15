@@ -5,7 +5,9 @@ function profile(){
 
   const t = titleOf(m);
   const isPaid = !!m.idFeePaid;
-  const isLocked = !isPaid && !S.card;
+  
+  // FIXED: Only admins bypass the lock. Parents and users see the lock if unpaid.
+  const isLocked = !isPaid && !isAdmin(); 
   
   const backBtn = S.card ? '<button class="p" onclick="S.card=null;render()" style="margin-bottom:14px">← Back to my profile</button>' : '';
 
@@ -52,7 +54,7 @@ function profile(){
     + (isLocked 
         ? '<div class="card" style="text-align:center; padding: 40px 20px; border-color: var(--bad)">'
           + '<h3 style="color:var(--bad)">🔒 ID Card Locked</h3>'
-          + '<p class="mute">Your official ID card is locked. Pay the one-time ID fee to unlock it.</p>'
+          + '<p class="mute">The official ID card is locked. Pay the one-time ID fee to unlock it.</p>'
           + '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>'
           + '</div>'
         : '<canvas id="cv"></canvas>'
@@ -115,7 +117,6 @@ async function fxUnlinkChild(id, name) {
   if(!confirm('Are you sure you want to unlink ' + name + '?')) return;
   
   try {
-    // Setting parentId to empty string removes the link
     await updateDoc(doc(db, 'members', id), { parentId: "" });
     say('Child unlinked successfully.');
     await fxLoadFamily();
@@ -135,19 +136,26 @@ async function fxLoadFamily() {
   }
 }
 
+// ------------------------------------------------------------
+// SECTION: Pay ID Fee Modal
+// ------------------------------------------------------------
 function fxPayIdFee() {
-  const m = S.me;
+  // FIXED: If a parent is managing a child (S.card exists), pay for the child.
+  const m = S.card || S.me;
   if(!m) return;
+  
   fxCloseDonate();
   const modal = document.createElement('div'); 
   modal.className = 'modal'; 
   modal.id = 'donModal';
   modal.onclick = function (e) { if (e.target === modal) fxCloseDonate(); };
+  
   modal.innerHTML = '<div class="card">'
-    + '<h3>Pay ID Fee</h3>'
-    + '<p class="mute">Send the one-time fee to the community account below. Once the admin confirms your payment, your ID card will unlock automatically.</p>' 
+    + '<h3>Pay ID Fee for ' + esc(m.name) + '</h3>'
+    + '<p class="mute">Send the one-time fee to the community account below. Once the admin confirms your payment, this ID card will unlock automatically.</p>' 
     + acctHtml(acctOf(null)) 
     + '<div class="row"><button onclick="fxCloseDonate()">Close</button></div></div>';
+    
   document.body.appendChild(modal);
 }
 
