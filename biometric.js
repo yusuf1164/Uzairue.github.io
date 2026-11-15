@@ -2,7 +2,6 @@
 // BIOMETRIC SECURITY (Fingerprint / Face ID)
 // ------------------------------------------------------------
 
-// Check if the device supports biometrics
 async function checkBioSupport() {
   if (!window.PublicKeyCredential) return false;
   try {
@@ -12,12 +11,10 @@ async function checkBioSupport() {
   }
 }
 
-// Convert string to ArrayBuffer (required by WebAuthn)
 function strToBuf(str) {
   return new Uint8Array([...str].map(c => c.charCodeAt(0)));
 }
 
-// REGISTER: Ask the user to enable fingerprint after they log in
 async function setupBiometrics() {
   if (!(await checkBioSupport())) {
     return say('Your device does not support fingerprint or Face ID.');
@@ -27,7 +24,6 @@ async function setupBiometrics() {
     const challenge = new Uint8Array(32);
     window.crypto.getRandomValues(challenge);
 
-    // Prompt the phone to scan the finger
     const credential = await navigator.credentials.create({
       publicKey: {
         challenge: challenge,
@@ -37,7 +33,7 @@ async function setupBiometrics() {
           name: S.me.email,
           displayName: S.me.name
         },
-        pubKeyCredParams: [{ alg: -7, type: "public-key" }], // ES256
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
         authenticatorSelection: {
           authenticatorAttachment: "platform",
           userVerification: "required"
@@ -48,7 +44,6 @@ async function setupBiometrics() {
     });
 
     if (credential) {
-      // Save the credential ID to the phone's local storage
       const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
       localStorage.setItem('uzairue_bio_id', credId);
       localStorage.setItem('uzairue_bio_email', S.me.email);
@@ -62,19 +57,15 @@ async function setupBiometrics() {
   }
 }
 
-// AUTHENTICATE: Ask the user for fingerprint to unlock the app
 async function unlockWithBiometrics() {
   const credId = localStorage.getItem('uzairue_bio_id');
   if (!credId) return false;
 
   try {
-    // Convert saved string back to ArrayBuffer
     const rawId = new Uint8Array([...atob(credId)].map(c => c.charCodeAt(0)));
-    
     const challenge = new Uint8Array(32);
     window.crypto.getRandomValues(challenge);
 
-    // Prompt the phone to scan the finger
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge: challenge,
@@ -89,27 +80,29 @@ async function unlockWithBiometrics() {
     });
 
     if (assertion) {
-      // Fingerprint matched! 
-      // If the session is still alive, just unlock the UI.
+      // Fingerprint matched!
+      const lockScreen = document.getElementById('bio-lock-screen');
+      
+      // Check if Firebase session is still alive
       if (auth.currentUser) {
-        document.getElementById('bio-lock-screen').remove();
+        if (lockScreen) lockScreen.remove();
         return true;
       } else {
-        // If session expired, tell them to log in manually
+        // Fingerprint worked, but Firebase session expired
         say('Session expired. Please log in with your email and password.');
         localStorage.removeItem('uzairue_bio_id');
         localStorage.removeItem('uzairue_bio_email');
-        location.reload();
+        if (lockScreen) lockScreen.remove();
+        location.reload(); // Refresh to show login screen
       }
     }
   } catch (err) {
     console.error(err);
-    say('Fingerprint scan failed or cancelled.');
+    // If they cancel the fingerprint, do nothing, let them try again
   }
   return false;
 }
 
-// DISABLE: Turn off fingerprint login
 function disableBiometrics() {
   localStorage.removeItem('uzairue_bio_id');
   localStorage.removeItem('uzairue_bio_email');
