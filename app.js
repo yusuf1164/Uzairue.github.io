@@ -16,9 +16,6 @@ try{
   S.y   = r.y   || 0;
 } catch(e){}
 
-// ------------------------------------------------------------
-// SECTION: Top navigation (with Notification Bell)
-// ------------------------------------------------------------
 function nav(){
   let h = '<button onclick="go(\'home\')">Home</button>'
         + '<button onclick="jump(\'news\')">News</button>'
@@ -55,9 +52,6 @@ function nav(){
   });
 }
 
-// ------------------------------------------------------------
-// SECTION: Page renderer
-// ------------------------------------------------------------
 function render(){
   if(S.ready){
     if(!S.user && ['me', 'council', 'admin', 'verify'].includes(S.view))
@@ -81,7 +75,6 @@ function render(){
 
   $('app').innerHTML = h;
 
-  // Only draw the ID card if it exists on the page (Front or Back)
   if(S.view === 'me' && (S.card || S.me)) {
     if($('cv')) drawCard(S.card || S.me, 'cv');
   }
@@ -120,7 +113,8 @@ Object.assign(window, {
   S, go, jump, out, doLogin, doSignup, resendVerify, checkVerified,
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
   addCouncil, addDon, editTarget, del, toggle, reissue, showCard,
-  render, $, v, ok, serverTimestamp
+  render, $, v, ok, serverTimestamp,
+  fxLinkChild, fxManageChild, fxLoadFamily
 });
 
 const BUSY = {
@@ -136,7 +130,8 @@ const BUSY = {
   del: 'Deleting...',
   toggle: 'Updating...',
   reissue: 'Re-issuing...',
-  submitMember: () => S.editId ? 'Saving...' : 'Registering...'
+  submitMember: () => S.editId ? 'Saving...' : 'Registering...',
+  fxLinkChild: 'Linking...'
 };
 
 function busyWrap(fn, label){
@@ -181,8 +176,8 @@ if(cfgOk){
     }
 
     await reload();
+    await fxLoadFamily();
     
-    // Hide the loading spinner once the app is ready
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
   });
