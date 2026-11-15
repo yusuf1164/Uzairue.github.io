@@ -1,6 +1,3 @@
-// ------------------------------------------------------------
-// SECTION: Extra styles
-// ------------------------------------------------------------
 const st = document.createElement('style');
 st.textContent =
   '.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}' +
@@ -15,9 +12,6 @@ st.textContent =
   '.grid > .card .row:last-child{margin-top:auto}';
 document.head.appendChild(st);
 
-// ------------------------------------------------------------
-// SECTION: Library loader
-// ------------------------------------------------------------
 const QR_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 const JSQR_URL = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
 const libs = {};
@@ -30,9 +24,6 @@ function lib(url) {
 }
 lib(QR_URL).catch(function () {});
 
-// ------------------------------------------------------------
-// SECTION: Small helpers
-// ------------------------------------------------------------
 const imgOk = function (u) { return /^(https?:\/\/|data:image\/)/i.test(u || '') ? u : ''; };
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(function () { d.remove(); }, 1600); }
 function fxCopy(t) {
@@ -41,9 +32,6 @@ function fxCopy(t) {
 }
 function rr(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); x.fill(); }
 
-// ------------------------------------------------------------
-// SECTION: Site settings
-// ------------------------------------------------------------
 S.site = S.site || {};
 function applyLogo() {
   const l = document.querySelector('.logo'); if (!l) return;
@@ -57,9 +45,6 @@ async function loadSite() {
 const _loadPub = window.loadPub;
 window.loadPub = async function () { await _loadPub(); await loadSite(); };
 
-// ------------------------------------------------------------
-// SECTION: Image picker (ImgBB Upload)
-// ------------------------------------------------------------
 const IMG = {};
 function fxPick(inp, key, max, png) {
   const f = inp.files[0]; if (!f) return;
@@ -114,9 +99,6 @@ function fxPick(inp, key, max, png) {
   r.readAsDataURL(f);
 }
 
-// ------------------------------------------------------------
-// SECTION: Donate panel
-// ------------------------------------------------------------
 const acctOf = function (p) { const s = S.site || {}; return (p && (p.acct || p.bank)) ? { bank: p.bank, acct: p.acct, name: p.acctName } : { bank: s.bank, acct: s.acct, name: s.acctName }; };
 function acctHtml(a) {
   if (!a.acct) return '<p class="mute">Account details will be added soon.</p>';
@@ -132,9 +114,6 @@ function fxDonate(pid) {
   document.body.appendChild(m);
 }
 
-// ------------------------------------------------------------
-// SECTION: Home page
-// ------------------------------------------------------------
 window.home = function () {
   const s = S.site || {};
   let h = '<div class="hero">' + (s.logo ? '<img src="' + esc(s.logo) + '" alt="" style="height:64px;margin-bottom:8px">' : '') + '<h1>UZAIRUE</h1><p>One community, one future. Follow our news, back our projects and join the family.</p><div class="row"><button class="p" onclick="fxDonate()">Donate</button>' + (S.user ? '' : '<button onclick="go(\'signup\')">Join now</button>') + '</div></div>';
@@ -150,9 +129,6 @@ window.home = function () {
   return h;
 };
 
-// ------------------------------------------------------------
-// SECTION: ID card (Front and Back)
-// ------------------------------------------------------------
 window.drawCard = async function (m, id) {
   const c = $(id); if (!c) return;
   try { await lib(QR_URL); } catch (e) {}
@@ -160,121 +136,7 @@ window.drawCard = async function (m, id) {
   const x = c.getContext('2d');
   const LIME = '#7ddc1f', PALE = '#c8f06a';
 
-  // Base Dark Green Background for both sides
   let g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0d4a1a'); g.addColorStop(1, '#16802d'); x.fillStyle = g; x.fillRect(0, 0, W, H);
 
-  // ---------------------------------------------------------
-  // DRAW BACK OF CARD
-  // ---------------------------------------------------------
   if (S.cardFlipped) {
-    x.strokeStyle = LIME; x.lineWidth = 4; x.strokeRect(20, 20, W - 40, H - 40);
-    
-    x.textAlign = 'center'; x.fillStyle = LIME; x.font = 'bold 36px sans-serif';
-    x.fillText('TERMS & CONDITIONS', W / 2, 80);
-    
-    x.fillStyle = '#fff'; x.font = '20px sans-serif';
-    x.fillText('This card is the official property of UZAIRUE KINGDOM.', W / 2, 140);
-    x.fillText('1. This card is non-transferable and must be carried at all times.', W / 2, 180);
-    x.fillText('2. If found, please return to the nearest Admin or Village Head.', W / 2, 210);
-    x.fillText('3. Misuse of this card will result in immediate revocation.', W / 2, 240);
-
-    x.fillStyle = '#fff';
-    let bx = 330; 
-    const baseline = 380; 
-    for (let i = 0; i < 40; i++) {
-      let bw = Math.floor(Math.random() * 8) + 2;
-      let bh = Math.floor(Math.random() * 40) + 40;
-      x.fillRect(bx, baseline - bh, bw, bh); 
-      bx += bw + 4;
-    }
-    x.font = '20px monospace'; x.fillText(m.id || 'UCA-0000', W / 2, 415); 
-
-    x.fillStyle = PALE; x.font = 'bold 18px sans-serif';
-    x.fillText('© 2026 UZAIRUE KINGDOM. ALL RIGHTS RESERVED.', W / 2, 480);
-    x.fillStyle = '#fff'; x.font = '16px sans-serif';
-    x.fillText('Generated digitally on ' + new Date().toLocaleDateString(), W / 2, 520);
-    return; 
-  }
-
-  // ---------------------------------------------------------
-  // DRAW FRONT OF CARD
-  // ---------------------------------------------------------
-  const MAP_URL = 'map.jpg'; 
-  const load = function (src) { 
-    return new Promise(function (r) { 
-      if (!src) return r(null); 
-      const i = new Image(); 
-      i.crossOrigin = "anonymous"; 
-      i.onload = function () { r(i); }; 
-      i.onerror = function () { r(null); }; 
-      i.src = src; 
-    }); 
-  };
-  
-  const imgs = await Promise.all([load((S.site || {}).logo), load(m.img), load(MAP_URL)]);
-  const logo = imgs[0], photo = imgs[1], map = imgs[2];
-  
-  x.fillStyle = '#0b3d17'; x.beginPath(); x.moveTo(0, 0); x.lineTo(590, 0); x.bezierCurveTo(735, 140, 725, 330, 495, H); x.lineTo(0, H); x.closePath(); x.fill();
-  g = x.createLinearGradient(0, 0, 560, H); g.addColorStop(0, '#031a08'); g.addColorStop(1, '#06300f'); x.fillStyle = g;
-  x.beginPath(); x.moveTo(0, 0); x.lineTo(565, 0); x.bezierCurveTo(705, 140, 695, 330, 470, H); x.lineTo(0, H); x.closePath(); x.fill();
-
-  if (map) {
-    x.save();
-    x.globalCompositeOperation = 'multiply'; 
-    x.globalAlpha = 0.35; 
-    const scale = Math.max(W / map.width, H / map.height);
-    const mapW = map.width * scale;
-    const mapH = map.height * scale;
-    const mapX = (W - mapW) / 2;
-    const mapY = (H - mapH) / 2;
-    x.drawImage(map, mapX, mapY, mapW, mapH);
-    x.restore();
-  }
-
-  const overlay = x.createLinearGradient(0, 0, W, 0);
-  overlay.addColorStop(0, 'rgba(11, 61, 23, 0.95)'); 
-  overlay.addColorStop(0.45, 'rgba(11, 61, 23, 0.8)'); 
-  overlay.addColorStop(0.65, 'rgba(11, 61, 23, 0)');   
-  x.fillStyle = overlay;
-  x.fillRect(0, 0, W, H);
-
-  x.textAlign = 'left'; x.fillStyle = LIME; x.font = 'bold 38px sans-serif';
-  const lines = ['']; String(m.name || '').toUpperCase().split(' ').forEach(function (w) { const t = (lines[lines.length - 1] + ' ' + w).trim(); if (x.measureText(t).width > 340 && lines[lines.length - 1]) lines.push(w); else lines[lines.length - 1] = t; });
-  lines.slice(0, 3).forEach(function (l, i) { x.fillText(l, 40, 85 + i * 44); });
-  
-  x.fillStyle = PALE; x.font = 'bold 24px sans-serif'; x.fillText(String((titleOf(m) || 'MEMBER')).toUpperCase(), 40, 215);
-  x.fillStyle = '#145a22'; x.fillRect(40, 238, 500, 3);
-  
-  const addr = m.address || m.house || '-', age = ageOf(m.dob);
-  const stat = (age !== '' ? age + ' yrs \u00b7 ' : '') + (m.status === 'revoked' ? 'REVOKED' : 'ACTIVE');
-  const rows = [['MEMBER ID', m.id || ''], ['VILLAGE / TOWN', m.village || ''], ['ADDRESS', addr], ['PHONE', m.phone || '-'], ['OCCUPATION', m.occupation || '-'], ['AGE / STATUS', stat]];
-  let ry = 292;
-  rows.forEach(function (r) {
-    x.fillStyle = LIME; x.font = 'bold 16px sans-serif'; x.fillText(r[0], 40, ry);
-    x.fillStyle = (m.status === 'revoked' && r[0] === 'AGE / STATUS') ? '#ff6b6b' : '#ffffff'; x.font = '22px sans-serif';
-    const ls = wrapText(x, String(r[1]), 300).slice(0, 2);
-    ls.forEach(function (l, i) { x.fillText(l, 215, ry + i * 26); });
-    ry += 44 + (ls.length > 1 ? 24 : 0);
-  });
-
-  x.save(); x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.closePath(); x.clip();
-  x.fillStyle = '#16284a'; x.fillRect(405, 40, 150, 150);
-  if (photo) x.drawImage(photo, 405, 40, 150, 150); else { x.fillStyle = LIME; x.font = 'bold 70px sans-serif'; x.textAlign = 'center'; x.fillText((m.name || '?').charAt(0).toUpperCase(), 480, 140); x.textAlign = 'left'; }
-  x.restore(); x.strokeStyle = LIME; x.lineWidth = 4; x.beginPath(); x.arc(480, 115, 75, 0, Math.PI * 2); x.stroke();
-
-  x.textAlign = 'center';
-  if (logo) { const k = Math.min(230 / logo.width, 200 / logo.height); x.drawImage(logo, 840 - logo.width * k / 2, 55, logo.width * k, logo.height * k); }
-  else { x.fillStyle = LIME; x.font = 'bold 36px sans-serif'; x.fillText('UZAIRUE KINGDOM', 840, 100); }
-  
-  x.fillStyle = LIME; x.font = 'bold 42px sans-serif'; x.fillText('UZAIRUE', 840, 315);
-  x.font = 'bold 30px sans-serif'; x.fillText('KINGDOM', 840, 355);
-  
-  x.fillStyle = PALE; x.font = 'bold 22px sans-serif'; x.fillText('COMMUNITY CARD', 840, 395);
-
-  if (window.qrcode && m.id) {
-    const q = qrcode(0, 'M'); q.addData('UZAIRUE:' + m.id); q.make();
-    const n = q.getModuleCount(), box = 160, pad = 12, cs = (box - pad * 2) / n, qx = 760, qy = 415;
-    x.fillStyle = '#ffffff'; rr(x, qx, qy, box, box, 14); x.fillStyle = '#000000';
-    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) x.fillRect(qx + pad + k * cs, qy + pad + r * cs, cs + 0.6, cs + 0.6);
-  }
-};
+    x.strokeStyle = LIME; x.lineWidth = 4; x.stroke
