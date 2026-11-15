@@ -16,6 +16,9 @@ try{
   S.y   = r.y   || 0;
 } catch(e){}
 
+// ------------------------------------------------------------
+// SECTION: Top navigation (with Notification Bell)
+// ------------------------------------------------------------
 function nav(){
   let h = '<button onclick="go(\'home\')">Home</button>'
         + '<button onclick="jump(\'news\')">News</button>'
@@ -52,8 +55,11 @@ function nav(){
   });
 }
 
+// ------------------------------------------------------------
+// SECTION: Page renderer
+// ------------------------------------------------------------
 function render(){
-  // If Firebase hasn't finished checking the login state, show a spinner
+  // If Firebase hasn't finished checking the login state, show a loading spinner
   if(!S.ready) {
     $('app').innerHTML = '<div style="text-align:center; padding: 60px 20px;"><div class="spinner"></div><h3>Waking up...</h3></div>';
     return;
@@ -64,9 +70,6 @@ function render(){
   if(S.user && ['login', 'signup'].includes(S.view))
     S.view = 'home';
     
-  
-  }
-
   if(S.user && !S.user.emailVerified && ['me', 'council', 'admin'].includes(S.view))
     S.view = 'verify';
 
@@ -121,7 +124,8 @@ Object.assign(window, {
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
   addCouncil, addDon, editTarget, del, toggle, reissue, showCard,
   render, $, v, ok, serverTimestamp,
-    fxLinkChild, fxUnlinkChild, fxManageChild, fxLoadFamily
+  fxLinkChild, fxUnlinkChild, fxManageChild, fxLoadFamily,
+  setupBiometrics, unlockWithBiometrics, disableBiometrics
 });
 
 const BUSY = {
@@ -188,10 +192,9 @@ if(cfgOk){
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
 
-    // NEW: Check if fingerprint is enabled for this device
+    // NEW: Fingerprint Lock Screen logic
     const bioId = localStorage.getItem('uzairue_bio_id');
     if (bioId && S.user) {
-      // Create the Lock Screen UI
       const lockScreen = document.createElement('div');
       lockScreen.id = 'bio-lock-screen';
       lockScreen.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;';
@@ -207,7 +210,6 @@ if(cfgOk){
       
       document.body.appendChild(lockScreen);
       
-      // Trigger the prompt automatically
       setTimeout(unlockWithBiometrics, 500);
     }
   });
