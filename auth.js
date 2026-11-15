@@ -36,10 +36,14 @@ async function doLogin(){
       + '</div>';
   }
 
-  try{
+   try{
     await signInWithEmailAndPassword(auth, email, pass);
     S.view = 'home';
     S.msg = '';
+    
+    // NEW: Delay just a fraction of a second to let Firebase save the session to the phone
+    await new Promise(r => setTimeout(r, 500)); 
+    
   } catch(e){
     say('Login failed: check your email and password.');
   }
