@@ -16,9 +16,6 @@ try{
   S.y   = r.y   || 0;
 } catch(e){}
 
-// ------------------------------------------------------------
-// SECTION: Top navigation (with Notification Bell)
-// ------------------------------------------------------------
 function nav(){
   let h = '<button onclick="go(\'home\')">Home</button>'
         + '<button onclick="jump(\'news\')">News</button>'
@@ -55,11 +52,7 @@ function nav(){
   });
 }
 
-// ------------------------------------------------------------
-// SECTION: Page renderer
-// ------------------------------------------------------------
 function render(){
-  // If Firebase hasn't finished checking the login state, show a loading spinner
   if(!S.ready) {
     $('app').innerHTML = '<div style="text-align:center; padding: 60px 20px;"><div class="spinner"></div><h3>Waking up...</h3></div>';
     return;
@@ -119,13 +112,14 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
+// Notice: setupBiometrics, unlockWithBiometrics, disableBiometrics are REMOVED from here.
+// They are already global because they are declared with 'function' in biometric.js.
 Object.assign(window, {
   S, go, jump, out, doLogin, doSignup, resendVerify, checkVerified,
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
   addCouncil, addDon, editTarget, del, toggle, reissue, showCard,
   render, $, v, ok, serverTimestamp,
-  fxLinkChild, fxUnlinkChild, fxManageChild, fxLoadFamily,
-  setupBiometrics, unlockWithBiometrics, disableBiometrics
+  fxLinkChild, fxUnlinkChild, fxManageChild, fxLoadFamily
 });
 
 const BUSY = {
@@ -192,7 +186,6 @@ if(cfgOk){
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
 
-    // NEW: Fingerprint Lock Screen logic
     const bioId = localStorage.getItem('uzairue_bio_id');
     if (bioId && S.user) {
       const lockScreen = document.createElement('div');
