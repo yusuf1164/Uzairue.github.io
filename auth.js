@@ -1,12 +1,25 @@
 // Login, sign-up and email verification.
-const login = () =>
-  '<div class="card narrow">'
-  + '<h3>Log in</h3>'
-  + '<label>Email</label><input id="le" type="email">'
-  + '<label>Password</label><input id="lp" type="password">'
-  + '<button class="p" onclick="doLogin()">Log in</button> '
-  + '<button onclick="go(\'signup\')">Create account</button>'
-  + '</div>';
+const login = () => {
+  const hasBio = localStorage.getItem('uzairue_bio_id');
+  
+  return '<div class="card narrow">'
+    + '<h3>Log in</h3>'
+    
+    // If they have a fingerprint saved, show this button FIRST
+    + (hasBio 
+        ? '<div style="text-align:center; margin-bottom: 20px;">'
+          + '<div style="font-size:60px;color:var(--acc);cursor:pointer;margin-bottom:10px;" onclick="loginWithBiometrics()">🫆</div>'
+          + '<button class="p" style="width:100%" onclick="loginWithBiometrics()">Log in with Fingerprint</button>'
+          + '<p class="mute" style="margin-top:10px; font-size:12px">OR USE PASSWORD</p>'
+          + '</div>'
+        : '')
+        
+    + '<label>Email</label><input id="le" type="email">'
+    + '<label>Password</label><input id="lp" type="password">'
+    + '<button class="' + (hasBio ? '' : 'p') + '" onclick="doLogin()" style="width:100%">Log in with Password</button> '
+    + '<button onclick="go(\'signup\')" style="width:100%; margin-top:10px">Create account</button>'
+    + '</div>';
+};
 
 const signup = () =>
   '<div class="card narrow">'
@@ -40,10 +53,7 @@ async function doLogin(){
     await signInWithEmailAndPassword(auth, email, pass);
     S.view = 'home';
     S.msg = '';
-    
-    // NEW: Tiny delay to ensure Firebase saves the session to the device
     await new Promise(r => setTimeout(r, 500)); 
-    
   } catch(e){
     say('Login failed: check your email and password.');
   }
