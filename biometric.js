@@ -57,9 +57,12 @@ async function setupBiometrics() {
   }
 }
 
-async function unlockWithBiometrics() {
+// NEW: This triggers when they click the "Login with Fingerprint" button
+async function loginWithBiometrics() {
   const credId = localStorage.getItem('uzairue_bio_id');
-  if (!credId) return false;
+  const savedEmail = localStorage.getItem('uzairue_bio_email');
+  
+  if (!credId) return say('No fingerprint saved on this device.');
 
   try {
     const rawId = new Uint8Array([...atob(credId)].map(c => c.charCodeAt(0)));
@@ -81,26 +84,21 @@ async function unlockWithBiometrics() {
 
     if (assertion) {
       // Fingerprint matched!
-      const lockScreen = document.getElementById('bio-lock-screen');
-      
-      // Check if Firebase session is still alive
+      // If Firebase remembers them, just go home.
       if (auth.currentUser) {
-        if (lockScreen) lockScreen.remove();
-        return true;
+        S.view = 'home';
+        render();
       } else {
-        // Fingerprint worked, but Firebase session expired
-        say('Session expired. Please log in with your email and password.');
-        localStorage.removeItem('uzairue_bio_id');
-        localStorage.removeItem('uzairue_bio_email');
-        if (lockScreen) lockScreen.remove();
-        location.reload(); // Refresh to show login screen
+        // If Firebase session expired, we still can't log them in without a password.
+        // So we put their email in the box and ask for the password just this once.
+        say('Fingerprint recognized, but session expired. Please enter your password to reconnect.');
+        if($('le')) $('le').value = savedEmail || '';
       }
     }
   } catch (err) {
     console.error(err);
-    // If they cancel the fingerprint, do nothing, let them try again
+    say('Fingerprint scan cancelled.');
   }
-  return false;
 }
 
 function disableBiometrics() {
