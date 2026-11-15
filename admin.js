@@ -1,7 +1,3 @@
-// Admin panel and admin actions (members, villages, council, news, projects, donations).
-// ------------------------------------------------------------
-// SECTION: Admin: member cards
-// ------------------------------------------------------------
 function memCards(){
   const q = S.q.toLowerCase();
 
@@ -22,41 +18,25 @@ function memCards(){
       + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
       + '<span class="tag">' + (m.status || 'active') + '</span>'
     + '</div>'
-    //+ '<div class="row" style="justify-content:center">'
-     // + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
-     // + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
-     //   + (m.status === 'revoked' ? 'Restore' : 'Revoke')
-   //   + '</button>'
-    //  + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
-    
-    //  + (m._id === S.me._id ? '' :
-   //       '<button onclick="toggle(\'' + m._id + '\',\'role\')">'
-    //        + (m.role === 'admin' ? 'Make member' : 'Make admin')
-    // + '</button>'
-
-
     + '<div class="row" style="justify-content:center">'
-  + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
-  + '<button onclick="toggle(\'' + m._id + '\',\'status\')">' + (m.status === 'revoked' ? 'Restore' : 'Revoke') + '</button>'
-  + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
-  // NEW: The Unlock Button
-  + (m.idFeePaid 
-      ? '<button class="p" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Paid ✔</button>' 
-      : '<button class="d" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Unlock ID</button>')
-  + (m._id === S.me._id ? '' : '<button onclick="toggle(\'' + m._id + '\',\'role\')">' + (m.role === 'admin' ? 'Make member' : 'Make admin') + '</button><button class="d" onclick="del(\'members\',\'' + m._id + '\')">Remove</button>')
-+ '</div></div>'
-
-    
-    
+      + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
+      + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
+        + (m.status === 'revoked' ? 'Restore' : 'Revoke')
+      + '</button>'
+      + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
+      + (m.idFeePaid 
+          ? '<button class="p" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Paid ✔</button>' 
+          : '<button class="d" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Unlock ID</button>')
+      + (m._id === S.me._id ? '' :
+          '<button onclick="toggle(\'' + m._id + '\',\'role\')">'
+            + (m.role === 'admin' ? 'Make member' : 'Make admin')
+          + '</button>'
           + '<button class="d" onclick="del(\'members\',\'' + m._id + '\')">Remove</button>'
         )
     + '</div></div>'
   ).join('') || '<div class="card mute">No members found.</div>';
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin page
-// ------------------------------------------------------------
 function admin(){
   if(!isAdmin()) return '<div class="card">Admins only.</div>';
 
@@ -270,9 +250,6 @@ function admin(){
   return h;
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: register member
-// ------------------------------------------------------------
 async function addMember(){
   const n = v('an');
   if(!n) return say('Name is required.');
@@ -296,27 +273,17 @@ async function addMember(){
     S.img = '';
     await reload();
     say('Registered ' + id);
-  } catch(e){
-    say(e.message);
-  }
+  } catch(e){ say(e.message); }
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: add an item
-// ------------------------------------------------------------
 async function addSimple(c, d, k){
   if(!v(k)) return say('Please fill in the first field.');
   try{
     await addDoc(collection(db, c), d);
     await reload();
-  } catch(e){
-    say(e.message);
-  }
+  } catch(e){ say(e.message); }
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: add council member
-// ------------------------------------------------------------
 async function addCouncil(){
   if(!v('cn') || !v('ct')) return say('Name and title are required.');
   try{
@@ -330,14 +297,9 @@ async function addCouncil(){
     });
     S.img = '';
     await reload();
-  } catch(e){
-    say(e.message);
-  }
+  } catch(e){ say(e.message); }
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: log a donation
-// ------------------------------------------------------------
 async function addDon(){
   const a = +v('da'),
         pid = v('dp'),
@@ -355,14 +317,9 @@ async function addDon(){
     });
     await updateDoc(doc(db, 'projects', pid), { raised: increment(a) });
     await reload();
-  } catch(e){
-    say(e.message);
-  }
+  } catch(e){ say(e.message); }
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: set project target
-// ------------------------------------------------------------
 async function editTarget(id, t){
   const n = prompt('Target amount (₦)', t);
   if(n === null) return;
@@ -370,37 +327,23 @@ async function editTarget(id, t){
   reload();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: delete
-// ------------------------------------------------------------
 async function del(c, id){
   if(!confirm('Delete this?')) return;
   await deleteDoc(doc(db, c, id));
   reload();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: change role or status
-// ------------------------------------------------------------
 async function toggle(id, f){
   const m = S.mem.filter(x => x._id === id)[0];
   let val;
-  
-  if (f === 'role') {
-    val = (m.role === 'admin' ? 'member' : 'admin');
-  } else if (f === 'status') {
-    val = (m.status === 'revoked' ? 'active' : 'revoked');
-  } else if (f === 'idFeePaid') {
-    val = !m.idFeePaid; // Flip the boolean
-  }
+  if (f === 'role') { val = (m.role === 'admin' ? 'member' : 'admin'); }
+  else if (f === 'status') { val = (m.status === 'revoked' ? 'active' : 'revoked'); }
+  else if (f === 'idFeePaid') { val = !m.idFeePaid; }
 
   await updateDoc(doc(db, 'members', id), { [f]: val });
   reload();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: re-issue ID
-// ------------------------------------------------------------
 async function reissue(id){
   if(!confirm('Give this member a new ID?')) return;
   const n = await nextId();
@@ -408,20 +351,13 @@ async function reissue(id){
   reload();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: view a member's ID card
-// ------------------------------------------------------------
 function showCard(id){
   S.card = S.mem.filter(x => x._id === id)[0];
   S.view = 'me';
+  S.cardFlipped = false;
   render();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin: look up a member by ID
-// What it does: Searches the recent 20 locally. If not found, it
-//    queries the database directly so you can edit anyone in 100k.
-// ------------------------------------------------------------
 async function lookupId(){
   const q = v('aid').toUpperCase();
   const n = $('anote');
@@ -447,9 +383,7 @@ async function lookupId(){
       if(!qSnap.empty) {
         m = { _id: qSnap.docs[0].id, ...qSnap.docs[0].data() };
       }
-    } catch(e) { 
-      console.error("Search failed:", e); 
-    }
+    } catch(e) { console.error("Search failed:", e); }
   }
 
   S.editId = m ? m._id : '';
@@ -476,16 +410,10 @@ async function lookupId(){
   }
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: register or save
-// ------------------------------------------------------------
 async function submitMember(){
   return S.editId ? saveMember() : addMember();
 }
 
-// ------------------------------------------------------------
-// SECTION: Admin action: save member edits
-// ------------------------------------------------------------
 async function saveMember(){
   const m = S.mem.filter(x => x._id === S.editId)[0];
   if(!m) return say('Member not found.');
@@ -508,7 +436,5 @@ async function saveMember(){
     S._was = false;
     await reload();
     say('Saved changes to ' + m.id);
-  } catch(e){
-    say(e.message);
-  }
+  } catch(e){ say(e.message); }
 }
