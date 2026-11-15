@@ -22,16 +22,32 @@ function memCards(){
       + '<span class="tag ' + (m.role === 'admin' ? 'a' : '') + '">' + m.role + '</span> '
       + '<span class="tag">' + (m.status || 'active') + '</span>'
     + '</div>'
+    //+ '<div class="row" style="justify-content:center">'
+     // + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
+     // + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
+     //   + (m.status === 'revoked' ? 'Restore' : 'Revoke')
+   //   + '</button>'
+    //  + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
+    
+    //  + (m._id === S.me._id ? '' :
+   //       '<button onclick="toggle(\'' + m._id + '\',\'role\')">'
+    //        + (m.role === 'admin' ? 'Make member' : 'Make admin')
+    // + '</button>'
+
+
     + '<div class="row" style="justify-content:center">'
-      + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
-      + '<button onclick="toggle(\'' + m._id + '\',\'status\')">'
-        + (m.status === 'revoked' ? 'Restore' : 'Revoke')
-      + '</button>'
-      + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
-      + (m._id === S.me._id ? '' :
-          '<button onclick="toggle(\'' + m._id + '\',\'role\')">'
-            + (m.role === 'admin' ? 'Make member' : 'Make admin')
-          + '</button>'
+  + '<button onclick="showCard(\'' + m._id + '\')">ID card</button>'
+  + '<button onclick="toggle(\'' + m._id + '\',\'status\')">' + (m.status === 'revoked' ? 'Restore' : 'Revoke') + '</button>'
+  + '<button onclick="reissue(\'' + m._id + '\')">Re-issue ID</button>'
+  // NEW: The Unlock Button
+  + (m.idFeePaid 
+      ? '<button class="p" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Paid ✔</button>' 
+      : '<button class="d" onclick="toggle(\'' + m._id + '\',\'idFeePaid\')">Unlock ID</button>')
+  + (m._id === S.me._id ? '' : '<button onclick="toggle(\'' + m._id + '\',\'role\')">' + (m.role === 'admin' ? 'Make member' : 'Make admin') + '</button><button class="d" onclick="del(\'members\',\'' + m._id + '\')">Remove</button>')
++ '</div></div>'
+
+    
+    
           + '<button class="d" onclick="del(\'members\',\'' + m._id + '\')">Remove</button>'
         )
     + '</div></div>'
@@ -274,6 +290,7 @@ async function addMember(){
       status: 'active',
       img: S.img,
       byAdmin: true,
+      idFeePaid: false,
       createdAt: serverTimestamp()
     });
     S.img = '';
@@ -366,10 +383,17 @@ async function del(c, id){
 // SECTION: Admin action: change role or status
 // ------------------------------------------------------------
 async function toggle(id, f){
-  const m = S.mem.filter(x => x._id === id)[0],
-        val = f === 'role'
-          ? (m.role === 'admin' ? 'member' : 'admin')
-          : (m.status === 'revoked' ? 'active' : 'revoked');
+  const m = S.mem.filter(x => x._id === id)[0];
+  let val;
+  
+  if (f === 'role') {
+    val = (m.role === 'admin' ? 'member' : 'admin');
+  } else if (f === 'status') {
+    val = (m.status === 'revoked' ? 'active' : 'revoked');
+  } else if (f === 'idFeePaid') {
+    val = !m.idFeePaid; // Flip the boolean
+  }
+
   await updateDoc(doc(db, 'members', id), { [f]: val });
   reload();
 }
