@@ -47,7 +47,6 @@ async function doLogin(){
   } catch(e){
     say('Login failed: check your email and password.');
   }
-}
 
 async function doSignup(){
   const n = v('sn'),
