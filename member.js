@@ -68,6 +68,23 @@ function profile(){
     + linkForm;
 }
 
+
+
+//===================================================================
+ // SECTION: BIOMETRIC LOGIC
+//===================================================================
+    + (S.card ? '' : '<div class="card" style="margin-top:14px">'
+        + '<h3>Security</h3>'
+        + (localStorage.getItem('uzairue_bio_id') 
+            ? '<p class="mute">Fingerprint login is currently active on this device.</p>'
+              + '<button class="d" onclick="disableBiometrics()">Disable Fingerprint Login</button>'
+            : '<p class="mute">Enable fingerprint or Face ID to log in faster next time.</p>'
+              + '<button class="p" onclick="setupBiometrics()">Enable Fingerprint Login</button>'
+          )
+        + '</div>'
+      );
+
+
 // ------------------------------------------------------------
 // SECTION: Family Logic
 // ------------------------------------------------------------
