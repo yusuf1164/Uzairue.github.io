@@ -112,8 +112,6 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
-// Notice: setupBiometrics, unlockWithBiometrics, disableBiometrics are REMOVED from here.
-// They are already global because they are declared with 'function' in biometric.js.
 Object.assign(window, {
   S, go, jump, out, doLogin, doSignup, resendVerify, checkVerified,
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
@@ -186,8 +184,9 @@ if(cfgOk){
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
 
+    // NEW LOGIC: If fingerprint is enabled, ALWAYS show the lock screen first!
     const bioId = localStorage.getItem('uzairue_bio_id');
-    if (bioId && S.user) {
+    if (bioId) {
       const lockScreen = document.createElement('div');
       lockScreen.id = 'bio-lock-screen';
       lockScreen.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;';
