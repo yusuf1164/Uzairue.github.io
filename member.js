@@ -1,15 +1,11 @@
-// ------------------------------------------------------------
-// SECTION: Profile page
-// ------------------------------------------------------------
+// Member profile page and the downloadable ID card.
 function profile(){
   const m = S.card || S.me;
   if(!m) return '<div class="card">Your profile is not available.</div>';
 
   const t = titleOf(m);
   const isPaid = !!m.idFeePaid;
-  
-  // FIX: Only Admins can bypass the lock. Parents must pay for the child.
-  const isLocked = !isPaid && !isAdmin(); 
+  const isLocked = !isPaid && !S.card;
   
   const backBtn = S.card ? '<button class="p" onclick="S.card=null;render()" style="margin-bottom:14px">← Back to my profile</button>' : '';
 
@@ -18,9 +14,12 @@ function profile(){
     familyCard = '<div class="card" style="margin-top:14px">'
       + '<h3>My Family</h3>'
       + S.familyList.map(c => 
-          '<div class="row" style="justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0;">'
+          '<div class="row" style="justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:8px 0; flex-wrap:nowrap;">'
           + '<div><b>' + esc(c.name) + '</b><br><span class="mute">' + esc(c.id) + '</span></div>'
+          + '<div style="display:flex; gap:6px">'
           + '<button class="p" onclick="fxManageChild(\'' + c._id + '\')">Manage</button>'
+          + '<button class="d" onclick="fxUnlinkChild(\'' + c._id + '\',\'' + esc(c.name) + '\')">Unlink</button>'
+          + '</div>'
           + '</div>'
         ).join('')
       + '</div>';
@@ -53,9 +52,8 @@ function profile(){
     + (isLocked 
         ? '<div class="card" style="text-align:center; padding: 40px 20px; border-color: var(--bad)">'
           + '<h3 style="color:var(--bad)">🔒 ID Card Locked</h3>'
-          + '<p class="mute">This ID card is locked. Pay the one-time ID fee to unlock it.</p>'
-          // Only show the Pay Now button if it's the user's own card (not a child)
-          + (S.card ? '<p class="mute">Ask your parent to pay the ID fee.</p>' : '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>')
+          + '<p class="mute">Your official ID card is locked. Pay the one-time ID fee to unlock it.</p>'
+          + '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>'
           + '</div>'
         : '<canvas id="cv"></canvas>'
           + '<div class="row">'
@@ -99,6 +97,7 @@ async function fxLinkChild() {
     const childData = childDoc.data();
 
     if(childData.dob !== cdob) return say('The Date of Birth does not match our records for ' + cid);
+    if(childData.parentId) return say('This member is already linked to another parent.');
 
     await updateDoc(doc(db, 'members', childDoc.id), { parentId: S.me._id });
     
@@ -109,6 +108,20 @@ async function fxLinkChild() {
   } catch(e) {
     if(e.code === 'auth/wrong-password') say('Incorrect password.');
     else say(e.message);
+  }
+}
+
+async function fxUnlinkChild(id, name) {
+  if(!confirm('Are you sure you want to unlink ' + name + '?')) return;
+  
+  try {
+    // Setting parentId to empty string removes the link
+    await updateDoc(doc(db, 'members', id), { parentId: "" });
+    say('Child unlinked successfully.');
+    await fxLoadFamily();
+    render();
+  } catch(e) {
+    say(e.message);
   }
 }
 
