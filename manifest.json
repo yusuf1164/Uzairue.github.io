@@ -8,16 +8,14 @@
   "description": "The official community app for UZAIRUE KINGDOM.",
   "icons": [
     {
-      "src": "https://i.ibb.co/6PZ6bH5/icon-192.png",
+      "src": "./icon.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
-      "src": "https://i.ibb.co/6PZ6bH5/icon-512.png",
+      "src": "./icon.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
