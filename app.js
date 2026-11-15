@@ -37,7 +37,7 @@ function nav(){
     if(isAdmin()){
       const alerts = (S.pendingDuesCount || 0) + (S.unpaidIdCount || 0);
       const badge = alerts > 0 ? '<span style="background:var(--bad);color:#fff;border-radius:99px;padding:2px 7px;font-size:12px;margin-left:6px;font-weight:bold">' + alerts + '</span>' : '';
-      h += '<button onclick="go(\'admin\')">Admin 🔔' + badge + '</button>';
+      h += '<button onclick="S.tab= 'fxdues' ;go('admin')">Admin 🔔' + badge + '</button>';
     }
     
     h += '<button onclick="out()">Log out</button>';
