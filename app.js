@@ -184,25 +184,11 @@ if(cfgOk){
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
 
-    // NEW LOGIC: If fingerprint is enabled, ALWAYS show the lock screen first!
-    const bioId = localStorage.getItem('uzairue_bio_id');
-    if (bioId) {
-      const lockScreen = document.createElement('div');
-      lockScreen.id = 'bio-lock-screen';
-      lockScreen.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;';
-      
-      lockScreen.innerHTML = `
-        <div class="logo" style="margin-bottom:20px;font-size:28px">UZAIRUE KINGDOM</div>
-        <div style="font-size:80px;color:var(--acc);margin-bottom:20px;cursor:pointer;" onclick="unlockWithBiometrics()">🫆</div>
-        <h3>Fingerprint Required</h3>
-        <p class="mute">Touch the sensor to unlock your account.</p>
-        <button class="p" style="margin-top:20px" onclick="unlockWithBiometrics()">Unlock</button>
-        <button style="margin-top:10px;background:transparent;border:none;color:var(--mute);text-decoration:underline" onclick="disableBiometrics();document.getElementById('bio-lock-screen').remove();">Log out & use password</button>
-      `;
-      
-      document.body.appendChild(lockScreen);
-      
-      setTimeout(unlockWithBiometrics, 500);
+    // If the user is logged out, but has a fingerprint saved, 
+    // we can automatically trigger the login page.
+    if (!S.user && localStorage.getItem('uzairue_bio_id')) {
+      S.view = 'login';
+      render();
     }
   });
 } else {
