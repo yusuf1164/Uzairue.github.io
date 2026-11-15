@@ -1,26 +1,13 @@
 // Navigation, page rendering and app start-up. Loaded last.
 
-// ------------------------------------------------------------
-// SECTION: Session memory: save
-// What it does: Stores the current page, admin section and scroll position so a refresh can
-//    reopen them.
-// ------------------------------------------------------------
 function saveSession(){
   try{
     localStorage.setItem('uzairue_session', JSON.stringify({
-      view: S.view,
-      tab: S.tab,
-      sec: S.sec || '',
-      y: window.scrollY || 0
+      view: S.view, tab: S.tab, sec: S.sec || '', y: window.scrollY || 0
     }));
   } catch(e){}
 }
 
-// ------------------------------------------------------------
-// SECTION: Session memory: restore
-// What it does: On start-up, reads the saved page, admin section and scroll position back
-//    into the app state.
-// ------------------------------------------------------------
 try{
   const r = JSON.parse(localStorage.getItem('uzairue_session') || '{}');
   if(r.view) S.view = r.view;
@@ -30,9 +17,7 @@ try{
 } catch(e){}
 
 // ------------------------------------------------------------
-// SECTION: Top navigation
-// What it does: Builds the top buttons for the person's state (logged out, unverified,
-//    member, admin) and highlights the current page.
+// SECTION: Top navigation (with Notification Bell)
 // ------------------------------------------------------------
 function nav(){
   let h = '<button onclick="go(\'home\')">Home</button>'
@@ -48,12 +33,15 @@ function nav(){
   } else {
     h += '<button onclick="go(\'council\')">Council</button>'
       + '<button onclick="go(\'me\')">My profile</button>';
+      
     if(isAdmin()){
-  const alerts = (S.pendingDuesCount || 0) + (S.unpaidIdCount || 0);
-  const badge = alerts > 0 ? '<span style="background:var(--bad);color:#fff;border-radius:99px;padding:2px 7px;font-size:12px;margin-left:6px;font-weight:bold">' + alerts + '</span>' : '';
-  
-  h += '<button onclick="go(\'admin\')">Admin 🔔' + badge + '</button>';
-}
+      const alerts = (S.pendingDuesCount || 0) + (S.unpaidIdCount || 0);
+      const badge = alerts > 0 ? '<span style="background:var(--bad);color:#fff;border-radius:99px;padding:2px 7px;font-size:12px;margin-left:6px;font-weight:bold">' + alerts + '</span>' : '';
+      h += '<button onclick="go(\'admin\')">Admin 🔔' + badge + '</button>';
+    }
+    
+    h += '<button onclick="out()">Log out</button>';
+  }
 
   $('nav').innerHTML = h;
 
@@ -69,8 +57,6 @@ function nav(){
 
 // ------------------------------------------------------------
 // SECTION: Page renderer
-// What it does: The main redraw: applies page-access rules, builds the nav and the current
-//    page, restores scroll position and saves the session.
 // ------------------------------------------------------------
 function render(){
   if(S.ready){
@@ -88,17 +74,17 @@ function render(){
   let h = S.msg ? '<div class="msg">' + esc(S.msg) + '</div>' : '';
 
   if(!cfgOk)
-    h += '<div class="card"><h3>Setup needed</h3>'
-      + '<p>Paste your Firebase config into <b>index.html</b> (see the setup steps), then reload.</p>'
-      + '</div>';
+    h += '<div class="card"><h3>Setup needed</h3><p>Paste your Firebase config into <b>index.html</b> (see the setup steps), then reload.</p></div>';
 
   const V = { home, login, signup, verify, council, me: profile, admin };
   h += (V[S.view] || home)();
 
   $('app').innerHTML = h;
 
-  if(S.view === 'me' && (S.card || S.me))
-    drawCard(S.card || S.me, 'cv');
+  // Only draw the ID card if it exists on the page (Front or Back)
+  if(S.view === 'me' && (S.card || S.me)) {
+    if($('cv')) drawCard(S.card || S.me, 'cv');
+  }
 
   if(S.y){
     const y = S.y;
@@ -111,11 +97,6 @@ function render(){
   saveSession();
 }
 
-// ------------------------------------------------------------
-// SECTION: Scroll listener
-// What it does: Saves the scroll position and, on Home, highlights News, Projects or Donate
-//    in the nav as each comes into view.
-// ------------------------------------------------------------
 window.addEventListener('scroll', () => {
   clearTimeout(window._st);
   window._st = setTimeout(saveSession, 250);
@@ -135,10 +116,6 @@ window.addEventListener('scroll', () => {
   }
 }, { passive: true });
 
-// ------------------------------------------------------------
-// SECTION: Expose to buttons
-// What it does: Makes functions available to the onclick attributes written in the HTML.
-// ------------------------------------------------------------
 Object.assign(window, {
   S, go, jump, out, doLogin, doSignup, resendVerify, checkVerified,
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
@@ -146,38 +123,26 @@ Object.assign(window, {
   render, $, v, ok, serverTimestamp
 });
 
-// ------------------------------------------------------------
-// SECTION: Button status labels
-// What it does: Maps each action to the text its button shows while working (for example
-//    "Adding...").
-// ------------------------------------------------------------
 const BUSY = {
-  doLogin:       'Logging in...',
-  doSignup:      'Creating account...',
-  out:           'Logging out...',
-  resendVerify:  'Sending...',
+  doLogin: 'Logging in...',
+  doSignup: 'Creating account...',
+  out: 'Logging out...',
+  resendVerify: 'Sending...',
   checkVerified: 'Checking...',
-  addSimple:     'Adding...',
-  addCouncil:    'Adding...',
-  addDon:        'Recording...',
-  editTarget:    'Saving...',
-  del:           'Deleting...',
-  toggle:        'Updating...',
-  reissue:       'Re-issuing...',
-  submitMember:  () => S.editId ? 'Saving...' : 'Registering...'
+  addSimple: 'Adding...',
+  addCouncil: 'Adding...',
+  addDon: 'Recording...',
+  editTarget: 'Saving...',
+  del: 'Deleting...',
+  toggle: 'Updating...',
+  reissue: 'Re-issuing...',
+  submitMember: () => S.editId ? 'Saving...' : 'Registering...'
 };
 
-// ------------------------------------------------------------
-// SECTION: Button status wrapper
-// What it does: Wraps an action so its button is disabled and shows the working label until
-//    the action finishes.
-// ------------------------------------------------------------
 function busyWrap(fn, label){
   return async function(){
     const e = window.event,
-          b = e && e.currentTarget && e.currentTarget.tagName === 'BUTTON'
-            ? e.currentTarget
-            : null,
+          b = e && e.currentTarget && e.currentTarget.tagName === 'BUTTON' ? e.currentTarget : null,
           t = b ? b.textContent : '';
 
     if(b){
@@ -197,20 +162,11 @@ function busyWrap(fn, label){
   };
 }
 
-// ------------------------------------------------------------
-// SECTION: Apply status wrappers
-// What it does: Wraps every action listed in BUSY.
-// ------------------------------------------------------------
 Object.keys(BUSY).forEach(n => {
   if(typeof window[n] === 'function')
     window[n] = busyWrap(window[n], BUSY[n]);
 });
 
-// ------------------------------------------------------------
-// SECTION: App start-up
-// What it does: Listens for login changes, loads the data and draws the first page. Without
-//    valid config it only draws the setup notice.
-// ------------------------------------------------------------
 if(cfgOk){
   onAuthStateChanged(auth, async u => {
     S.ready = true;
@@ -220,19 +176,17 @@ if(cfgOk){
     if(u && u.emailVerified){
       try{
         const d = await getDoc(doc(db, 'members', u.uid));
-        if(d.exists())
-          S.me = { _id: d.id, ...d.data() };
+        if(d.exists()) S.me = { _id: d.id, ...d.data() };
       } catch(e){}
     }
 
     await reload();
     
-    // NEW: Hide the loading spinner once everything is loaded
+    // Hide the loading spinner once the app is ready
     const loader = document.getElementById('loading-screen');
     if(loader) loader.remove();
   });
 } else {
-  // NEW: Hide the spinner even if Firebase config is missing
   const loader = document.getElementById('loading-screen');
   if(loader) loader.remove();
   render();
