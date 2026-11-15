@@ -69,11 +69,19 @@ async function loadAdmin(){
 
     const memQuery = query(collection(db, 'members'), limit(20));
     const memSnap = await getDocs(memQuery);
-    
     S.mem = memSnap.docs.map(d => ({ _id: d.id, ...d.data() }));
     S.mem.sort((a, b) => String(b.id).localeCompare(String(a.id)));
 
     S.don = (await list('donations', 'at')).reverse();
+
+    // NEW: Fetch pending dues count
+    const duesSnap = await getCountFromServer(query(collection(db, 'dues'), where('status', '==', 'pending')));
+    S.pendingDuesCount = duesSnap.data().count;
+
+    // NEW: Fetch unpaid ID fee count
+    const idSnap = await getCountFromServer(query(collection(db, 'members'), where('idFeePaid', '==', false)));
+    S.unpaidIdCount = idSnap.data().count;
+
   } catch(e) { console.error("Admin load failed:", e); }
 }
 
