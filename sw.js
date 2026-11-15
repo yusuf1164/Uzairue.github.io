@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uzairue-v3';
+const CACHE_NAME = 'uzairue-v4';
 const ASSETS = [
   './',
   './index.html',
