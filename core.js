@@ -4,6 +4,7 @@ const cfgOk = !String(window.FIREBASE_CONFIG.apiKey).startsWith('YOUR');
 const {
   auth, db, onAuthStateChanged, createUserWithEmailAndPassword,
   signInWithEmailAndPassword, signOut, sendEmailVerification,
+  EmailAuthProvider, reauthenticateWithCredential,
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
   deleteDoc, runTransaction, query, orderBy, increment,
   serverTimestamp, limit, where, getCountFromServer
@@ -27,7 +28,8 @@ const S = {
   vil: [], news: [], proj: [], coun: [], mem: [], memCount: 0, don: [],
   q: '', vf: '', msg: '', img: '', card: null, cardFlipped: false,
   pendingDuesCount: 0,
-  unpaidIdCount: 0
+  unpaidIdCount: 0,
+  familyList: []
 };
 
 const isAdmin = () => S.me && S.me.role === 'admin';
@@ -74,7 +76,6 @@ async function loadAdmin(){
 
     S.don = (await list('donations', 'at')).reverse();
 
-    // Safely fetch counts (never crash the app if these fail)
     try {
       const duesSnap = await getCountFromServer(query(collection(db, 'dues'), where('status', '==', 'pending')));
       S.pendingDuesCount = duesSnap.data().count;
