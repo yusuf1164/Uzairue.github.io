@@ -2,6 +2,7 @@ const CACHE_NAME = 'uzairue-v1';
 const ASSETS = [
   './',
   './index.html',
+  './manifest.json',
   './style.css',
   './config.js',
   './firebase.js',
