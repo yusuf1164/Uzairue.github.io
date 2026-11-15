@@ -114,7 +114,7 @@ Object.assign(window, {
   lookupId, submitMember, pick, dl, memCards, addMember, addSimple,
   addCouncil, addDon, editTarget, del, toggle, reissue, showCard,
   render, $, v, ok, serverTimestamp,
-  fxLinkChild, fxManageChild, fxLoadFamily
+    fxLinkChild, fxUnlinkChild, fxManageChild, fxLoadFamily
 });
 
 const BUSY = {
