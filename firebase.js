@@ -11,7 +11,9 @@ import {
   signOut,
   sendEmailVerification,
   EmailAuthProvider,
-  reauthenticateWithCredential
+  reauthenticateWithCredential,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import {
@@ -43,6 +45,9 @@ if(!String(cfg.apiKey).startsWith('YOUR')){
   const app = initializeApp(cfg);
   auth = getAuth(app);
   db   = getFirestore(app);
+  
+  // FORCE PERSISTENCE: Tells Firebase to remember the user forever
+  setPersistence(auth, browserLocalPersistence).catch(console.error);
 }
 
 window.FB = {
