@@ -5,8 +5,6 @@ function profile(){
 
   const t = titleOf(m);
   const isPaid = !!m.idFeePaid;
-  
-  // FIXED: Only admins bypass the lock. Parents and users see the lock if unpaid.
   const isLocked = !isPaid && !isAdmin(); 
   
   const backBtn = S.card ? '<button class="p" onclick="S.card=null;render()" style="margin-bottom:14px">← Back to my profile</button>' : '';
@@ -39,6 +37,21 @@ function profile(){
       + '</div>';
   }
 
+  // NEW: Fingerprint Security Card
+  let securityCard = '';
+  if (!S.card) {
+    const hasBio = localStorage.getItem('uzairue_bio_id');
+    securityCard = '<div class="card" style="margin-top:14px">'
+      + '<h3>Security</h3>'
+      + (hasBio 
+          ? '<p class="mute">Fingerprint login is currently active on this device.</p>'
+            + '<button class="d" onclick="disableBiometrics()">Disable Fingerprint Login</button>'
+          : '<p class="mute">Enable fingerprint or Face ID to log in faster next time.</p>'
+            + '<button class="p" onclick="setupBiometrics()">Enable Fingerprint Login</button>'
+        )
+      + '</div>';
+  }
+
   return backBtn
     + '<div class="card" style="display:flex;gap:14px;align-items:center">'
     + av(m)
@@ -65,25 +78,9 @@ function profile(){
       )
     + (S.card ? '' : '<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">')
     + familyCard
-    + linkForm;
+    + linkForm
+    + securityCard;
 }
-
-
-
-//===================================================================
- // SECTION: BIOMETRIC LOGIC
-//===================================================================
-    + (S.card ? '' : '<div class="card" style="margin-top:14px">'
-        + '<h3>Security</h3>'
-        + (localStorage.getItem('uzairue_bio_id') 
-            ? '<p class="mute">Fingerprint login is currently active on this device.</p>'
-              + '<button class="d" onclick="disableBiometrics()">Disable Fingerprint Login</button>'
-            : '<p class="mute">Enable fingerprint or Face ID to log in faster next time.</p>'
-              + '<button class="p" onclick="setupBiometrics()">Enable Fingerprint Login</button>'
-          )
-        + '</div>'
-      );
-
 
 // ------------------------------------------------------------
 // SECTION: Family Logic
@@ -153,11 +150,7 @@ async function fxLoadFamily() {
   }
 }
 
-// ------------------------------------------------------------
-// SECTION: Pay ID Fee Modal
-// ------------------------------------------------------------
 function fxPayIdFee() {
-  // FIXED: If a parent is managing a child (S.card exists), pay for the child.
   const m = S.card || S.me;
   if(!m) return;
   
