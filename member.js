@@ -1,11 +1,15 @@
-// Member profile page and the downloadable ID card.
+// ------------------------------------------------------------
+// SECTION: Profile page
+// ------------------------------------------------------------
 function profile(){
   const m = S.card || S.me;
   if(!m) return '<div class="card">Your profile is not available.</div>';
 
   const t = titleOf(m);
   const isPaid = !!m.idFeePaid;
-  const isLocked = !isPaid && !S.card;
+  
+  // FIX: Only Admins can bypass the lock. Parents must pay for the child.
+  const isLocked = !isPaid && !isAdmin(); 
   
   const backBtn = S.card ? '<button class="p" onclick="S.card=null;render()" style="margin-bottom:14px">← Back to my profile</button>' : '';
 
@@ -49,8 +53,9 @@ function profile(){
     + (isLocked 
         ? '<div class="card" style="text-align:center; padding: 40px 20px; border-color: var(--bad)">'
           + '<h3 style="color:var(--bad)">🔒 ID Card Locked</h3>'
-          + '<p class="mute">Your official ID card is locked. Pay the one-time ID fee to unlock it.</p>'
-          + '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>'
+          + '<p class="mute">This ID card is locked. Pay the one-time ID fee to unlock it.</p>'
+          // Only show the Pay Now button if it's the user's own card (not a child)
+          + (S.card ? '<p class="mute">Ask your parent to pay the ID fee.</p>' : '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>')
           + '</div>'
         : '<canvas id="cv"></canvas>'
           + '<div class="row">'
