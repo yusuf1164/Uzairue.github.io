@@ -5,6 +5,9 @@
 //    their digital ID card and a photo-change field. Admins also use it to view another
 //    member's card.
 // ------------------------------------------------------------
+// ------------------------------------------------------------
+// SECTION: Profile page
+// ------------------------------------------------------------
 function profile(){
   const m = S.card || S.me;
   if(!m)
@@ -22,8 +25,23 @@ function profile(){
     + '</div></div>'
     + '<h2>Digital ID card</h2>'
     + '<canvas id="cv"></canvas>'
-    + '<div class="row"><button class="p" onclick="dl()">Download ID</button></div>'
+    + '<div class="row">'
+    + '<button class="p" onclick="dl()">Download ID</button>'
+    // NEW: The Flip Button
+    + '<button onclick="S.cardFlipped = !S.cardFlipped; render();">Flip Card 🔄</button>'
+    + '</div>'
     + (S.card ? '' : '<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">');
+}
+
+// ------------------------------------------------------------
+// SECTION: Action: download ID
+// ------------------------------------------------------------
+function dl(){
+  const c = $('cv'),
+        a = document.createElement('a');
+  a.href = c.toDataURL('image/png');
+  a.download = ((S.card || S.me).id || 'ID') + (S.cardFlipped ? '-back' : '-front') + '.png';
+  a.click();
 }
 
 // ------------------------------------------------------------
@@ -107,10 +125,10 @@ function drawCard(m, id){
 // SECTION: Action: download ID
 // What it does: Saves the drawn card as a PNG image named after the member ID.
 // ------------------------------------------------------------
-function dl(){
-  const c = $('cv'),
-        a = document.createElement('a');
-  a.href = c.toDataURL('image/png');
-  a.download = ((S.card || S.me).id || 'ID') + '.png';
-  a.click();
-}
+//function dl(){
+  //const c = $('cv'),
+    //    a = document.createElement('a');
+  //a.href = c.toDataURL('image/png');
+ // a.download = ((S.card || S.me).id || 'ID') + '.png';
+//  a.click();
+//}
