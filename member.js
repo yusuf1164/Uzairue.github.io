@@ -5,15 +5,17 @@
 //    their digital ID card and a photo-change field. Admins also use it to view another
 //    member's card.
 // ------------------------------------------------------------
-// ------------------------------------------------------------
 // SECTION: Profile page
 // ------------------------------------------------------------
 function profile(){
   const m = S.card || S.me;
-  if(!m)
-    return '<div class="card">Your profile is not available. If you were registered by an admin without an email, ask the admin to view it for you.</div>';
+  if(!m) return '<div class="card">Your profile is not available.</div>';
 
   const t = titleOf(m);
+  const isPaid = !!m.idFeePaid;
+  
+  // If not paid, and not viewed by an admin (S.card is empty)
+  const isLocked = !isPaid && !S.card;
 
   return '<div class="card" style="display:flex;gap:14px;align-items:center">'
     + av(m)
@@ -23,22 +25,55 @@ function profile(){
     + '<div class="mute">' + esc(m.village) + ' · Address ' + esc(m.house || '-') + '</div>'
     + '<div class="mute">' + esc(m.phone || '') + ' ' + esc(m.email || '') + '</div>'
     + '</div></div>'
+    
     + '<h2>Digital ID card</h2>'
-    + '<canvas id="cv"></canvas>'
-    + '<div class="row">'
-    + '<button class="p" onclick="dl()">Download ID</button>'
-    // NEW: The Flip Button
-    + '<button onclick="S.cardFlipped = !S.cardFlipped; render();">Flip Card 🔄</button>'
-    + '</div>'
+    
+    + (isLocked 
+        ? '<div class="card" style="text-align:center; padding: 40px 20px; border-color: var(--bad)">'
+          + '<h3 style="color:var(--bad)">🔒 ID Card Locked</h3>'
+          + '<p class="mute">Your official ID card is locked. Pay the one-time ID fee to the community account to unlock it.</p>'
+          + '<button class="p" onclick="fxPayIdFee()" style="margin-top:10px">Pay Now</button>'
+          + '</div>'
+        : '<canvas id="cv"></canvas>'
+          + '<div class="row">'
+          + '<button class="p" onclick="dl()">Download ID</button>'
+          + '<button onclick="S.cardFlipped = !S.cardFlipped; render();">Flip Card 🔄</button>'
+          + '</div>'
+      )
+
     + (S.card ? '' : '<h2>Update photo</h2><input type="file" accept="image/*" onchange="pick(this)">');
+}
+
+// ------------------------------------------------------------
+// SECTION: Pay ID Fee Modal
+// ------------------------------------------------------------
+function fxPayIdFee() {
+  const m = S.me;
+  if(!m) return;
+  
+  // Reuse your existing fxDonate modal by passing a custom title
+  fxCloseDonate();
+  const modal = document.createElement('div'); 
+  modal.className = 'modal'; 
+  modal.id = 'donModal';
+  modal.onclick = function (e) { if (e.target === modal) fxCloseDonate(); };
+  
+  modal.innerHTML = '<div class="card">'
+    + '<h3>Pay ID Fee</h3>'
+    + '<p class="mute">Send the one-time fee to the community account below. Once the admin confirms your payment, your ID card will unlock automatically.</p>' 
+    + acctHtml(acctOf(null)) 
+    + '<div class="row"><button onclick="fxCloseDonate()">Close</button></div></div>';
+    
+  document.body.appendChild(modal);
 }
 
 // ------------------------------------------------------------
 // SECTION: Action: download ID
 // ------------------------------------------------------------
 function dl(){
-  const c = $('cv'),
-        a = document.createElement('a');
+  const c = $('cv');
+  if(!c) return; // Safety check
+  const a = document.createElement('a');
   a.href = c.toDataURL('image/png');
   a.download = ((S.card || S.me).id || 'ID') + (S.cardFlipped ? '-back' : '-front') + '.png';
   a.click();
