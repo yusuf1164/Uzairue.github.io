@@ -25,7 +25,9 @@ const ok = u => /^https?:\/\//i.test(u) ? u : '';
 const S = {
   user: null, me: null, view: 'home', tab: 'dash',
   vil: [], news: [], proj: [], coun: [], mem: [], memCount: 0, don: [],
-  q: '', vf: '', msg: '', img: '', card: null, cardFlipped: false
+  q: '', vf: '', msg: '', img: '', card: null, cardFlipped: false,
+  pendingDuesCount: 0, // <-- ADD THIS
+  unpaidIdCount: 0     // <-- ADD THIS
 };
 
 const isAdmin = () => S.me && S.me.role === 'admin';
