@@ -1,7 +1,4 @@
 // Login, sign-up and email verification.
-// ------------------------------------------------------------
-// SECTION: Login page
-// ------------------------------------------------------------
 const login = () =>
   '<div class="card narrow">'
   + '<h3>Log in</h3>'
@@ -11,9 +8,6 @@ const login = () =>
   + '<button onclick="go(\'signup\')">Create account</button>'
   + '</div>';
 
-// ------------------------------------------------------------
-// SECTION: Sign-up page
-// ------------------------------------------------------------
 const signup = () =>
   '<div class="card narrow">'
   + '<h3>Join UZAIRUE</h3>'
@@ -27,19 +21,13 @@ const signup = () =>
   + '<button class="p" onclick="doSignup()">Create account</button>'
   + '</div>';
 
-// ------------------------------------------------------------
-// SECTION: Action: log in
-// What it does: Signs in with Firebase. Replaces the form with a
-//    spinner while it waits for the home page data to load.
-// ------------------------------------------------------------
 async function doLogin(){
   const email = v('le');
   const pass = $('lp').value;
   
   if(!email || !pass) return say('Please enter your email and password.');
 
-  // 1. Find the login card and replace it with a spinner instantly
-  const card = $('le').closest('.card');
+  const card = $('le') ? $('le').closest('.card') : null;
   if (card) {
     card.innerHTML = '<div style="text-align:center; padding: 40px 20px;">'
       + '<div class="spinner"></div>'
@@ -52,17 +40,11 @@ async function doLogin(){
     await signInWithEmailAndPassword(auth, email, pass);
     S.view = 'home';
     S.msg = '';
-    // The app will now automatically fetch data and render the Home page.
-    // The spinner will stay visible until that process is finished.
   } catch(e){
-    // If it fails, 'say' triggers a render which puts the login form back
     say('Login failed: check your email and password.');
   }
 }
 
-// ------------------------------------------------------------
-// SECTION: Action: sign up
-// ------------------------------------------------------------
 async function doSignup(){
   const n = v('sn'),
         e = v('se'),
@@ -99,12 +81,11 @@ async function doSignup(){
       village: v('sv'),
       role: 'member',
       status: 'active',
-      img: S.img
+      img: S.img,
+      idFeePaid: false
     };
 
-    try{
-      await sendEmailVerification(c.user);
-    } catch(e){}
+    try{ await sendEmailVerification(c.user); } catch(e){}
 
     S.img = '';
     S.view = 'verify';
@@ -116,17 +97,11 @@ async function doSignup(){
   }
 }
 
-// ------------------------------------------------------------
-// SECTION: Action: log out
-// ------------------------------------------------------------
 async function out(){
   await signOut(auth);
   S.view = 'home';
 }
 
-// ------------------------------------------------------------
-// SECTION: Verify-email page
-// ------------------------------------------------------------
 const verify = () =>
   !S.user
     ? login()
@@ -141,9 +116,6 @@ const verify = () =>
       + '<p class="mute">Check your spam folder if you don’t see it.</p>'
       + '</div>';
 
-// ------------------------------------------------------------
-// SECTION: Action: resend verification email
-// ------------------------------------------------------------
 async function resendVerify(){
   try{
     await sendEmailVerification(auth.currentUser);
@@ -153,9 +125,6 @@ async function resendVerify(){
   }
 }
 
-// ------------------------------------------------------------
-// SECTION: Action: check verification
-// ------------------------------------------------------------
 async function checkVerified(){
   await auth.currentUser.reload();
   await auth.currentUser.getIdToken(true);
