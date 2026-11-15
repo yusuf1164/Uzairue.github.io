@@ -85,6 +85,7 @@ async function doSignup(){
       role: 'member',
       status: 'active',
       img: S.img,
+      idFeePaid: false,
       createdAt: serverTimestamp()
     });
 
