@@ -15,10 +15,15 @@ function strToBuf(str) {
   return new Uint8Array([...str].map(c => c.charCodeAt(0)));
 }
 
+// 1. Setup: Ask for password and save it securely
 async function setupBiometrics() {
   if (!(await checkBioSupport())) {
     return say('Your device does not support fingerprint or Face ID.');
   }
+
+  // Ask the user to confirm their password so we can save it for the background login
+  const pwd = prompt('To enable fingerprint login, please type your password one last time:');
+  if (!pwd) return;
 
   try {
     const challenge = new Uint8Array(32);
@@ -47,6 +52,7 @@ async function setupBiometrics() {
       const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
       localStorage.setItem('uzairue_bio_id', credId);
       localStorage.setItem('uzairue_bio_email', S.me.email);
+      localStorage.setItem('uzairue_bio_pwd', pwd); // SAVE PASSWORD LOCALLY
       
       say('Fingerprint login enabled successfully!');
       render();
@@ -57,18 +63,22 @@ async function setupBiometrics() {
   }
 }
 
-// NEW: This triggers when they click the "Login with Fingerprint" button
+// 2. Login: Scan finger, then use the saved password in the background
 async function loginWithBiometrics() {
   const credId = localStorage.getItem('uzairue_bio_id');
   const savedEmail = localStorage.getItem('uzairue_bio_email');
+  const savedPwd = localStorage.getItem('uzairue_bio_pwd');
   
-  if (!credId) return say('No fingerprint saved on this device.');
+  if (!credId || !savedEmail || !savedPwd) {
+    return say('Fingerprint setup is incomplete. Please log in with your password.');
+  }
 
   try {
     const rawId = new Uint8Array([...atob(credId)].map(c => c.charCodeAt(0)));
     const challenge = new Uint8Array(32);
     window.crypto.getRandomValues(challenge);
 
+    // 1. Ask for Fingerprint
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge: challenge,
@@ -83,16 +93,25 @@ async function loginWithBiometrics() {
     });
 
     if (assertion) {
-      // Fingerprint matched!
-      // If Firebase remembers them, just go home.
-      if (auth.currentUser) {
+      // 2. Fingerprint matched! Show loading spinner
+      const card = $('le') ? $('le').closest('.card') : null;
+      if (card) {
+        card.innerHTML = '<div style="text-align:center; padding: 40px 20px;">'
+          + '<div class="spinner"></div><h3>Unlocking...</h3>'
+          + '<p class="mute">Fingerprint verified.</p></div>';
+      }
+
+      // 3. Automatically log into Firebase using the saved password
+      try {
+        await signInWithEmailAndPassword(auth, savedEmail, savedPwd);
         S.view = 'home';
+        S.msg = '';
+        await new Promise(r => setTimeout(r, 500)); 
+      } catch (error) {
+        // If the password was changed, this will fail.
+        say('Session expired. Please log in with your password once to refresh.');
+        localStorage.removeItem('uzairue_bio_pwd');
         render();
-      } else {
-        // If Firebase session expired, we still can't log them in without a password.
-        // So we put their email in the box and ask for the password just this once.
-        say('Fingerprint recognized, but session expired. Please enter your password to reconnect.');
-        if($('le')) $('le').value = savedEmail || '';
       }
     }
   } catch (err) {
@@ -104,6 +123,7 @@ async function loginWithBiometrics() {
 function disableBiometrics() {
   localStorage.removeItem('uzairue_bio_id');
   localStorage.removeItem('uzairue_bio_email');
+  localStorage.removeItem('uzairue_bio_pwd');
   say('Fingerprint login disabled.');
   render();
 }
